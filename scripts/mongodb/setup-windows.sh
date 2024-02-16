@@ -19,8 +19,6 @@ export MONGO_ORCHESTRATION_HOME=$(cygpath $DRIVERS_TOOLS/.evergreen/orchestratio
 export VENV_BIN_DIR=$(cygpath $DRIVERS_TOOLS/.evergreen/orchestration/venv/Scripts)
 export PYTHONIOENCODING=UTF-8
 
-choco upgrade python
-
 # Remove the mongodb dir if it already exists in driver tools 
 rm -rf $DRIVERS_TOOLS/mongodb
 
