@@ -6,7 +6,6 @@ cd $HOME
 git clone git@github.com:prestonvasquez/mongo-go-driver.git
 git clone git@github.com:mongodb-labs/drivers-evergreen-tools.git
 
-export MONGO_ORCHESTRATION_HOME=$HOME
 export STPATH=$HOME/mongo-go-driver
 export DRIVERS_TOOLS=$HOME/drivers-evergreen-tools
 export PROJECT_DIRECTORY=$HOME/mongo-go-driver
