@@ -17,6 +17,7 @@ cd "$DRIVER_PATH" || exit
   go test ./mongo -v
   go test ./internal/integration/unified -v 
   go test ./internal/integration -v 
+  go test ./internal/integration -v -tags=cse
   go test ./x/mongo/driver -v 
   go test ./x/mongo/driver/topology -v 
   go test ./x/mongo/driver/connstring -v 
