@@ -16,7 +16,7 @@ func main() {
 	reader := bufio.NewReader(bytesReader)
 
 	// Read bytes using wrapper:
-	bytes, err := readBytes(reader, 4)
+	bytes, err := readBytesFull(reader, 4)
 	if err != nil {
 		log.Fatalf("failed to read bytes from wrapper: %v\n", err)
 	}
@@ -38,7 +38,7 @@ func main() {
 	log.Printf("reader.Size result: %v\n", reader.Size())
 }
 
-func readBytes(r *bufio.Reader, length int32) ([]byte, error) {
+func readBytesFull(r *bufio.Reader, length int32) ([]byte, error) {
 	if length < 0 {
 		return nil, fmt.Errorf("invalid length: %d", length)
 	}
@@ -52,4 +52,22 @@ func readBytes(r *bufio.Reader, length int32) ([]byte, error) {
 	}
 
 	return buf, nil
+}
+
+func readBytesIterative(r *bufio.Reader, length int32) ([]byte, error) {
+	if length < 0 {
+		return nil, fmt.Errorf("invalid length: %d", length)
+	}
+
+	bytes := make([]byte, length)
+	for i := 0; i < int(length); i++ {
+		var err error
+
+		bytes[i], err = r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return bytes, nil
 }
