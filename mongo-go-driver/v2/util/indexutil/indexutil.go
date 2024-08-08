@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 // CreateN will create n arbitrary indexes.
@@ -14,7 +14,7 @@ func CreateN(ctx context.Context, coll *mongo.Collection, n int) error {
 	for i := 0; i < n; i++ {
 		name := fmt.Sprintf("name_%v", i)
 
-		models[i] =  mongo.IndexModel{Keys: bson.D{{name, 1}}}
+		models[i] = mongo.IndexModel{Keys: bson.D{{name, 1}}}
 	}
 
 	_, err := coll.Indexes().CreateMany(ctx, models)
