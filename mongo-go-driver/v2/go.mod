@@ -1,4 +1,4 @@
-module devv2
+module github.com/prestonvasquez/mongo-go-driver/v2
 
 go 1.21.4
 

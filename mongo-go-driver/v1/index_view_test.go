@@ -1,23 +1,21 @@
-package main
+package v1
 
 import (
 	"context"
-	"devv1/util/indexutil"
-	"fmt"
-	"log"
+	"testing"
 
+	"github.com/prestonvasquez/dev/mongo-go-driver/v1/util/indexutil"
+	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func main() {
+func TestIndexView_DropAll(t *testing.T) {
 	opts := options.Client().ApplyURI("mongodb://localhost:27017")
 
 	client, err := mongo.Connect(context.Background(), opts)
-	if err != nil {
-		log.Fatalf("failed to create client: %v", err)
-	}
+	assert.NoError(t, err, "failed to connect")
 
 	defer client.Disconnect(context.Background())
 
@@ -25,35 +23,30 @@ func main() {
 	coll := client.Database("db").Collection("coll")
 	defer coll.Drop(context.Background())
 
-	if err := indexutil.CreateN(context.Background(), coll, 4); err != nil {
-		log.Fatalf("failed to create indexes: %v", err)
-	}
+	err = indexutil.CreateN(context.Background(), coll, 4)
+	assert.NoError(t, err, "failed to create indexes")
 
 	cur, err := coll.Indexes().List(context.Background())
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err, "failed to list indexes")
 
 	count := 0
 	for cur.Next(context.Background()) {
 		count++
 	}
 
-	log.Printf("num of indexes: %v", count)
+	t.Logf("num of indexes: %v\n", count)
 
 	res, err := coll.Indexes().DropAll(context.Background())
-	if err != nil {
-		log.Fatalf("failed to drop indexes: %v", err)
-	}
+	assert.NoError(t, err, "failed to drop indexes")
 
 	type dropResult struct {
 		NIndexesWas int
 	}
 
 	dres := dropResult{}
-	if err := bson.Unmarshal(res, &dres); err != nil {
-		log.Fatalf("failed to decode: %v", err)
-	}
 
-	fmt.Println(dres.NIndexesWas)
+	err = bson.Unmarshal(res, &dres)
+	assert.NoError(t, err, "failed to decode")
+
+	t.Logf("NIndexesWas: %v\n", dres.NIndexesWas)
 }

@@ -1,18 +1,28 @@
-package main
+package v1
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
+	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/event"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func main() {
+func newServerMonitor(ai64 *atomic.Int64) *event.ServerMonitor {
+	monitor := &event.ServerMonitor{
+		ServerHeartbeatStarted: func(_ *event.ServerHeartbeatStartedEvent) {
+			ai64.Add(1)
+		},
+	}
 
+	return monitor
+}
+
+func TestHeartbeatAnalytics(t *testing.T) {
 	now := time.Now()
 
 	var heartbeatsStartedCounter atomic.Int64
@@ -24,25 +34,13 @@ func main() {
 	defer cancel()
 
 	client, err := mongo.Connect(ctx, clientOpts)
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err, "failed to connect")
 
 	defer client.Disconnect(context.Background())
 
 	ticker := time.Tick(1 * time.Second)
 	for {
-		fmt.Printf("[%05d] total heartbeats until now: %d\n", int(time.Since(now).Seconds()), heartbeatsStartedCounter.Load())
+		t.Logf("[%05d] total heartbeats until now: %d\n", int(time.Since(now).Seconds()), heartbeatsStartedCounter.Load())
 		<-ticker
 	}
-}
-
-func newServerMonitor(ai64 *atomic.Int64) *event.ServerMonitor {
-	monitor := &event.ServerMonitor{
-		ServerHeartbeatStarted: func(_ *event.ServerHeartbeatStartedEvent) {
-			ai64.Add(1)
-		},
-	}
-
-	return monitor
 }
