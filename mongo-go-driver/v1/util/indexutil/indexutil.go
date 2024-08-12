@@ -55,7 +55,7 @@ type VectorField struct {
 	Similarity    VectorSimilarity `bson:"similarity"`
 }
 
-// CreateVectorSearch will create a vector search index that
+// CreateVectorSearch will create a vector search index.
 func CreateVectorSearch(ctx context.Context, coll *mongo.Collection, fields ...VectorField) (string, error) {
 	if coll == nil {
 		return "", fmt.Errorf("coll or idx must not be nil")

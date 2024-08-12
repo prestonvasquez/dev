@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"devv1/util/indexutil"
 	"log"
 	"os"
+
+	"github.com/prestonvasquez/dev/mongo-go-driver/v1/util/indexutil"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
