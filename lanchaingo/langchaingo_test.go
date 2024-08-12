@@ -33,7 +33,7 @@ func Test_AddDocuments(t *testing.T) {
 	}
 
 	// Create a mock LLM object.
-	llm := &mockOpenAILLM{}
+	llm := &MockOpenAILLM{}
 
 	// Use the OpenAI LLM object to create an embedder.
 	openAIEmbedder, err := embeddings.NewEmbedder(llm)

@@ -12,13 +12,13 @@ import (
 
 const textEmbedding3SmallSize = 1536
 
-// mockOpenAILLM will create consistent text embeddings mocking the OpenAI
+// MockOpenAILLM will create consistent text embeddings mocking the OpenAI
 // text-embedding-3-small algorithm.
-type mockOpenAILLM struct {
+type MockOpenAILLM struct {
 	seen map[string][]float32
 }
 
-var _ embeddings.EmbedderClient = &mockOpenAILLM{}
+var _ embeddings.EmbedderClient = &MockOpenAILLM{}
 
 // createVector will create a float32 vector with random elements of size n.
 func createVector(n int) ([]float32, error) {
@@ -40,7 +40,7 @@ func createVector(n int) ([]float32, error) {
 
 // CreateEmbedding will return vector embeddings for the mock OpenAILLM,
 // maintaining consitency.
-func (emb *mockOpenAILLM) CreateEmbedding(ctx context.Context, texts []string) ([][]float32, error) {
+func (emb *MockOpenAILLM) CreateEmbedding(ctx context.Context, texts []string) ([][]float32, error) {
 	if emb.seen == nil {
 		emb.seen = map[string][]float32{}
 	}
