@@ -56,7 +56,7 @@ type VectorField struct {
 }
 
 // CreateVectorSearch will create a vector search index.
-func CreateVectorSearch(ctx context.Context, coll *mongo.Collection, fields ...VectorField) (string, error) {
+func CreateVectorSearch(ctx context.Context, coll *mongo.Collection, name string, fields ...VectorField) (string, error) {
 	if coll == nil {
 		return "", fmt.Errorf("coll or idx must not be nil")
 	}
@@ -66,9 +66,6 @@ func CreateVectorSearch(ctx context.Context, coll *mongo.Collection, fields ...V
 	}
 
 	def := struct {
-		Mappings struct {
-			Dynamic bool `bson:"dynamic"`
-		} `bson:"mappings"`
 		Fields []VectorField `bson:"fields"`
 	}{
 		Fields: append([]VectorField{}, fields...),
@@ -76,7 +73,8 @@ func CreateVectorSearch(ctx context.Context, coll *mongo.Collection, fields ...V
 
 	view := coll.SearchIndexes()
 
-	searchName, err := view.CreateOne(ctx, mongo.SearchIndexModel{Definition: def})
+	opts := options.SearchIndexes().SetName(name).SetType("vectorSearch")
+	searchName, err := view.CreateOne(ctx, mongo.SearchIndexModel{Definition: def, Options: opts})
 	if err != nil {
 		return "", fmt.Errorf("failed to create the search index: %w", err)
 	}
@@ -107,4 +105,34 @@ func CreateVectorSearch(ctx context.Context, coll *mongo.Collection, fields ...V
 	}
 
 	return searchName, nil
+}
+
+// DropVectorSearch will attempt to drop the search index by name, awaiting
+// that it has been dropped.
+func DropVectorSearch(ctx context.Context, coll *mongo.Collection, name string) error {
+	if coll == nil {
+		return fmt.Errorf("collection must not be nil")
+	}
+
+	view := coll.SearchIndexes()
+
+	if err := view.DropOne(ctx, name); err != nil {
+		return fmt.Errorf("failed to drop index: %w", err)
+	}
+
+	// Await the drop of the index.
+	for {
+		cursor, err := view.List(ctx, options.SearchIndexes().SetName(name))
+		if err != nil {
+			return fmt.Errorf("failed to list search indexes: %w", err)
+		}
+
+		if !cursor.Next(ctx) {
+			break
+		} else {
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	return nil
 }

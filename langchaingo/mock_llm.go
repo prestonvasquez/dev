@@ -41,8 +41,8 @@ func createVector(n int) ([]float32, error) {
 // CreateEmbedding will return vector embeddings for the mock OpenAILLM,
 // maintaining consitency.
 func (emb *MockOpenAILLM) CreateEmbedding(ctx context.Context, texts []string) ([][]float32, error) {
+	emb.seen = map[string][]float32{}
 	if emb.seen == nil {
-		emb.seen = map[string][]float32{}
 	}
 
 	vectors := make([][]float32, len(texts))

@@ -4,14 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/schema"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func Test_AddDocuments(t *testing.T) {
-	// Example taken from langchain mongodb vectorstore.
-	// https://tinyurl.com/5c5mt724
+// Example taken from langchain mongodb vectorstore.
+// https://tinyurl.com/5c5mt724
+func newExampleDocs() []schema.Document {
 	docs := []schema.Document{
 		{
 			PageContent: "foo",
@@ -25,6 +26,12 @@ func Test_AddDocuments(t *testing.T) {
 			PageContent: "i will be deleted :(",
 		},
 	}
+
+	return docs
+}
+
+func Test_AddDocuments(t *testing.T) {
+	docs := newExampleDocs()
 
 	// Extract the body of text for embedding.
 	texts := make([]string, 0, len(docs))
@@ -62,6 +69,20 @@ func Test_AddDocuments(t *testing.T) {
 			{"metadata", doc.Metadata},
 		})
 	}
+}
 
-	// From here you just insert the above data into an atlas cluster.
+func TestEmbedder_EmbedQuery(t *testing.T) {
+	const query = "thud"
+
+	// Create a mock LLM object.
+	llm := &MockOpenAILLM{}
+
+	// Use the OpenAI LLM object to create an embedder.
+	openAIEmbedder, err := embeddings.NewEmbedder(llm)
+	if err != nil {
+		t.Fatalf("failed to construct an embedder for an openAI LLM: %v", err)
+	}
+
+	_, err = openAIEmbedder.EmbedQuery(context.Background(), query)
+	assert.NoError(t, err, "failed to embed query")
 }

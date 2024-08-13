@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func Test_Int32ToDouble(t *testing.T) {
+func Test_NumericUnmarshaling(t *testing.T) {
 	// GODRIVER-3296
 	t.Run("int32 to decimal128 bson", func(t *testing.T) {
 		doc := bson.D{{"test", int32(1)}}
