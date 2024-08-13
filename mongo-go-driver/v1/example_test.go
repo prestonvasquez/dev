@@ -157,8 +157,8 @@ func ExampleSearchVectors() {
 	scores := []float64{}
 	for _, fdoc := range found {
 		for _, felement := range fdoc {
-			scores = append(scores, felement.Value.(float64))
 			if felement.Key == "score" {
+				scores = append(scores, felement.Value.(float64))
 			}
 		}
 	}
