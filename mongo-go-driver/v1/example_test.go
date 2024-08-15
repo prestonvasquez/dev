@@ -264,25 +264,3 @@ func ExampleSearchVectors() {
 	fmt.Println(len(found), scores[0], math.Abs(scores[1]-0.0039) < 1e-3)
 	// Output: 2 1 true
 }
-
-//	cursor, err := Db.Collection("test").Aggregate(context.Background(), []bson.M{
-//func Example_Decode128_GODRIVER_3296() {
-//		{"$group": bson.M{
-//			"_id":  nil,
-//			"test": bson.M{"$sum": bson.M{"$toDecimal": "$not_exist_field"}},
-//		}},
-//	})
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	var result []struct {
-//		Test primitive.Decimal128 `bson:"test"`
-//	}
-//	if err := cursor.All(context.Background(), &result); err != nil {
-//		t.Fatal(err) // error decoding key test: cannot decode 32-bit integer into a primitive.Decimal128
-//	}
-//	t.Log(result)
-//
-//	fmt.Println("meep")
-//	// Output: "meep"
-//}
