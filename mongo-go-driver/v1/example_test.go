@@ -114,16 +114,12 @@ func Example_Decimal128_GODRIVER_3296() {
 		Test primitive.Decimal128 `bson:"test,omitzero"`
 	}
 
-	//result := []bson.D{}
-
 	if err := cursor.All(context.Background(), &result); err != nil {
 		log.Fatalf("failed to decode cursor: %v", err)
 	}
 
-	fmt.Println("result: ", result)
-
-	fmt.Println("meep")
-	// Output: meep
+	fmt.Println(result[0].Test.String())
+	// Output: 10.80000000000000
 }
 
 func ExampleCreateVectorSearchIndex() {
