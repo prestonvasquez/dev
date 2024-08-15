@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -70,6 +71,59 @@ func createTestSearchIndex(ctx context.Context, coll *mongo.Collection) (string,
 	}
 
 	return actualIdxName, nil
+}
+
+// From the design rational:
+//
+// > drivers must not automatically convert this type into a native type by
+// > default.
+func Example_Decimal128_GODRIVER_3296() {
+	opts := options.Client().ApplyURI("mongodb://localhost:27017")
+
+	client, err := mongo.Connect(context.Background(), opts)
+	if err != nil {
+		log.Fatalf("failed to construct client: %v", err)
+	}
+
+	defer client.Disconnect(context.Background())
+
+	coll := client.Database("db").Collection("coll")
+	defer coll.Drop(context.Background())
+
+	decs := []interface{}{
+		bson.D{{"val", 1.8}},
+		bson.D{{"val", 9}},
+	}
+
+	if _, err := coll.InsertMany(context.Background(), decs); err != nil {
+		log.Fatalf("failed to insert data: %v", err)
+	}
+
+	cursor, err := coll.Aggregate(context.Background(), []bson.M{
+		{"$group": bson.M{
+			"_id":  nil,
+			"test": bson.M{"$sum": bson.D{{"$toDecimal", bson.D{{"$ifNull", bson.A{"$dne", "$val"}}}}}},
+		}},
+	})
+
+	if err != nil {
+		log.Fatalf("failed to aggregate: %v", err)
+	}
+
+	var result []struct {
+		Test primitive.Decimal128 `bson:"test,omitzero"`
+	}
+
+	//result := []bson.D{}
+
+	if err := cursor.All(context.Background(), &result); err != nil {
+		log.Fatalf("failed to decode cursor: %v", err)
+	}
+
+	fmt.Println("result: ", result)
+
+	fmt.Println("meep")
+	// Output: meep
 }
 
 func ExampleCreateVectorSearchIndex() {
@@ -214,3 +268,25 @@ func ExampleSearchVectors() {
 	fmt.Println(len(found), scores[0], math.Abs(scores[1]-0.0039) < 1e-3)
 	// Output: 2 1 true
 }
+
+//	cursor, err := Db.Collection("test").Aggregate(context.Background(), []bson.M{
+//func Example_Decode128_GODRIVER_3296() {
+//		{"$group": bson.M{
+//			"_id":  nil,
+//			"test": bson.M{"$sum": bson.M{"$toDecimal": "$not_exist_field"}},
+//		}},
+//	})
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	var result []struct {
+//		Test primitive.Decimal128 `bson:"test"`
+//	}
+//	if err := cursor.All(context.Background(), &result); err != nil {
+//		t.Fatal(err) // error decoding key test: cannot decode 32-bit integer into a primitive.Decimal128
+//	}
+//	t.Log(result)
+//
+//	fmt.Println("meep")
+//	// Output: "meep"
+//}
