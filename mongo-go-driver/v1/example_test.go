@@ -86,7 +86,38 @@ func ExampleCreateVectorSearchIndex() {
 	}
 
 	fmt.Println(actualIdxName)
-	// Output: vector_index
+	// Output: test_vector_index
+}
+
+func ExampleCreateVectorSearchIndex_Multiple() {
+	coll, teardown, err := createTestSearchIndexColl(context.Background())
+	if err != nil {
+		log.Fatalf("failed to create test search index: %v", err)
+	}
+
+	defer teardown(context.Background())
+
+	field := VectorField{
+		Type:          "vector",
+		Path:          "plot_embedding",
+		NumDimensions: OpenAITextEmbedding3SmallSize,
+		Similarity:    VectorSimilarityEuclidean,
+	}
+
+	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_1")
+	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_1", field)
+	if err != nil {
+		log.Fatalf("failed to create vector search index: %v", err)
+	}
+
+	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_2")
+	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_2", field)
+	if err != nil {
+		log.Fatalf("failed to create vector search index: %v", err)
+	}
+
+	fmt.Println(err == nil)
+	// Output: true
 }
 
 func ExampleSearchVectors() {
@@ -98,8 +129,25 @@ func ExampleSearchVectors() {
 	defer teardown(context.Background())
 	defer coll.Drop(context.Background())
 
-	if _, err := createTestSearchIndex(context.Background(), coll); err != nil {
-		log.Fatalf("failed to create test search index: %v", err)
+	field := VectorField{
+		Type:          "vector",
+		Path:          "plot_embedding",
+		NumDimensions: OpenAITextEmbedding3SmallSize,
+		Similarity:    VectorSimilarityEuclidean,
+	}
+
+	// Create multiple indexes to illustrate that a collection is not bound by
+	// a single index.
+	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_1")
+	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_1", field)
+	if err != nil {
+		log.Fatalf("failed to create vector search index: %v", err)
+	}
+
+	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_2")
+	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_2", field)
+	if err != nil {
+		log.Fatalf("failed to create vector search index: %v", err)
 	}
 
 	// Add documents to the collection.
@@ -139,7 +187,7 @@ func ExampleSearchVectors() {
 	stage := bson.D{
 		// Name of Atlas Vector Search Index tied to Collection
 
-		{"index", testIdxName},
+		{"index", "vector_index_1"},
 		// Field in Collection containing embedding vectors
 		{"path", "plot_embedding"},
 		{"queryVector", fooVector},
@@ -165,5 +213,4 @@ func ExampleSearchVectors() {
 
 	fmt.Println(len(found), scores[0], math.Abs(scores[1]-0.0039) < 1e-3)
 	// Output: 2 1 true
-
 }
