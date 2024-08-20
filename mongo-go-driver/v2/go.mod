@@ -4,7 +4,7 @@ go 1.21.4
 
 require go.mongodb.org/mongo-driver/v2 v2.0.0-beta1
 
-replace go.mongodb.org/mongo-driver/v2 => /Users/preston.vasquez/Developer/mongo-go-driver
+//replace go.mongodb.org/mongo-driver/v2 => /Users/preston.vasquez/Developer/mongo-go-driver
 
 require (
 	github.com/golang/snappy v0.0.4 // indirect

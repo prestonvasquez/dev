@@ -226,8 +226,14 @@ func ExampleSearchVectors() {
 		},
 	}
 
-	if _, err := coll.InsertMany(context.Background(), docs); err != nil {
+	res, err := coll.InsertMany(context.Background(), docs)
+	if err != nil {
 		log.Fatalf("failed to insert documents: %v", err)
+	}
+
+	// Print the result IDS.
+	for _, id := range res.InsertedIDs {
+		fmt.Println(id)
 	}
 
 	// TODO: Why do we have to wait?
