@@ -160,7 +160,7 @@ func runVectorSearchExample(ctx context.Context, query string, toInsert []string
 
 	var coll *mongo.Collection
 
-	log.Println("Creating collection...")
+	log.Println("creating collection...")
 	{
 		uri := os.Getenv("MONGODB_URI")
 		if uri == "" {
@@ -181,7 +181,7 @@ func runVectorSearchExample(ctx context.Context, query string, toInsert []string
 		defer coll.Drop(ctx)
 	}
 
-	log.Println("re-create the index...")
+	log.Println("dropping and creating the index...")
 	{
 		_ = dropVectorSearchIndex(ctx, coll, index)
 
@@ -230,7 +230,7 @@ func runVectorSearchExample(ctx context.Context, query string, toInsert []string
 
 	found := []bson.D{}
 
-	log.Println("execute similarity search...")
+	log.Println("executing similarity search...")
 	{
 		// 5. Perform a similarity search. This will perform a similarity search on
 		// the vector space. A basic similarity search should look something like
