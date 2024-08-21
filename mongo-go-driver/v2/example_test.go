@@ -2,32 +2,14 @@ package v2
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"fmt"
 	"log"
-	"math"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
-
-// createMockEmbedding will create a float32 vector with random elements of size
-// n for mocking an embedding.
-func createMockEmbedding(n int) []float32 {
-	f32s := make([]float32, n)
-
-	for i := range f32s {
-		var b [4]byte
-
-		rand.Read(b[:])
-		f32s[i] = float32(binary.LittleEndian.Uint32(b[:])) / math.MaxUint32
-	}
-
-	return f32s
-}
 
 // Convert ClientOptionsBuilder to ClientOptions
 func ExampleClientOptionBuilderToClientOptions() {
@@ -109,4 +91,47 @@ func ExampleOpLevelTimeout() {
 
 	fmt.Println("done")
 	// Output: done
+}
+
+func ExampleVectorSearch_Singleton_Same() {
+	docs, err := runVectorSearchExample(context.TODO(), "test", []string{"test"})
+	if err != nil {
+		log.Fatalf("failed to run vector search: %v", err)
+	}
+
+	fmt.Println(len(docs))
+	// Output: 1
+}
+
+func ExampleVectorSearch_Singleton_Different() {
+	docs, err := runVectorSearchExample(context.TODO(), "test", []string{"toast"})
+	if err != nil {
+		log.Fatalf("failed to run vector search: %v", err)
+	}
+
+	fmt.Println(len(docs))
+	// Output: 1
+}
+
+func ExampleVectorSearch_Many_NoQuery() {
+	toInsert := []string{
+		"Tokyo",
+		"Yokohama",
+		"Osaka",
+		"Nagoya",
+		"Sapporo",
+		"Fukuoka",
+		"Dublin",
+		"Paris",
+		"London ",
+		"New York",
+	}
+
+	docs, err := runVectorSearchExample(context.TODO(), "", toInsert)
+	if err != nil {
+		log.Fatalf("failed to run vector search: %v", err)
+	}
+
+	fmt.Println(len(docs))
+	// Output: 1
 }

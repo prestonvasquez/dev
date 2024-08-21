@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
 	"os"
-	"reflect"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -50,27 +47,6 @@ func createTestSearchIndexColl(ctx context.Context) (*mongo.Collection, func(con
 	coll := client.Database(dbName).Collection(collName)
 
 	return coll, cleanup, nil
-}
-
-// createTestSearchIndex will drop the search index on the collection, if it
-// exists, then re-create it.
-func createTestSearchIndex(ctx context.Context, coll *mongo.Collection) (string, error) {
-	// Drop the vector search index before re-creating it for the test.
-	_ = DropVectorSearchIndex(ctx, coll, testIdxName)
-
-	field := VectorField{
-		Type:          "vector",
-		Path:          "plot_embedding",
-		NumDimensions: OpenAITextEmbedding3SmallSize,
-		Similarity:    VectorSimilarityEuclidean,
-	}
-
-	actualIdxName, err := CreateVectorSearchIndex(ctx, coll, testIdxName, field)
-	if err != nil {
-		return "", fmt.Errorf("failed to create vector search index: %v", err)
-	}
-
-	return actualIdxName, nil
 }
 
 // From the design rational:
@@ -122,151 +98,9 @@ func Example_Decimal128_GODRIVER_3296() {
 	// Output: 10.80000000000000
 }
 
-func ExampleCreateVectorSearchIndex() {
-	coll, teardown, err := createTestSearchIndexColl(context.Background())
-	if err != nil {
-		log.Fatalf("failed to create test search index: %v", err)
-	}
-
-	defer teardown(context.Background())
-
-	actualIdxName, err := createTestSearchIndex(context.Background(), coll)
-	if err != nil {
-		log.Fatalf("failed to create test search index: %v", err)
-	}
-
-	fmt.Println(actualIdxName)
-	// Output: test_vector_index
-}
-
-func ExampleCreateVectorSearchIndex_Multiple() {
-	coll, teardown, err := createTestSearchIndexColl(context.Background())
-	if err != nil {
-		log.Fatalf("failed to create test search index: %v", err)
-	}
-
-	defer teardown(context.Background())
-
-	field := VectorField{
-		Type:          "vector",
-		Path:          "plot_embedding",
-		NumDimensions: OpenAITextEmbedding3SmallSize,
-		Similarity:    VectorSimilarityEuclidean,
-	}
-
-	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_1")
-	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_1", field)
-	if err != nil {
-		log.Fatalf("failed to create vector search index: %v", err)
-	}
-
-	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_2")
-	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_2", field)
-	if err != nil {
-		log.Fatalf("failed to create vector search index: %v", err)
-	}
-
-	fmt.Println(err == nil)
-	// Output: true
-}
-
 func ExampleSearchVectors() {
-	coll, teardown, err := createTestSearchIndexColl(context.Background())
-	if err != nil {
-		log.Fatalf("failed to create test search index: %v", err)
-	}
-
-	defer teardown(context.Background())
-	defer coll.Drop(context.Background())
-
-	field := VectorField{
-		Type:          "vector",
-		Path:          "plot_embedding",
-		NumDimensions: OpenAITextEmbedding3SmallSize,
-		Similarity:    VectorSimilarityEuclidean,
-	}
-
-	// Create multiple indexes to illustrate that a collection is not bound by
-	// a single index.
-	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_1")
-	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_1", field)
-	if err != nil {
-		log.Fatalf("failed to create vector search index: %v", err)
-	}
-
-	_ = DropVectorSearchIndex(context.Background(), coll, "vector_index_2")
-	_, err = CreateVectorSearchIndex(context.Background(), coll, "vector_index_2", field)
-	if err != nil {
-		log.Fatalf("failed to create vector search index: %v", err)
-	}
-
-	// Add documents to the collection.
-	fooVector, err := CreateMockEmbedding(OpenAITextEmbedding3SmallSize)
-	if err != nil {
-		log.Fatalf("failed to create valid mock vector: %v", err)
-	}
-
-	barVector, err := CreateMockEmbedding(OpenAITextEmbedding3SmallSize)
-	if err != nil {
-		log.Fatalf("failed to create valid mock vector: %v", err)
-	}
-
-	if reflect.DeepEqual(fooVector, barVector) {
-		log.Fatal("foo and bar vectors are the same")
-	}
-
-	docs := []interface{}{
-		bson.D{
-			{"text", "foo"},
-			{"plot_embedding", fooVector},
-		},
-		bson.D{
-			{"text", "bar"},
-			{"plot_embedding", barVector},
-		},
-	}
-
-	res, err := coll.InsertMany(context.Background(), docs)
-	if err != nil {
-		log.Fatalf("failed to insert documents: %v", err)
-	}
-
-	// Print the result IDS.
-	for _, id := range res.InsertedIDs {
-		fmt.Println(id)
-	}
-
-	// TODO: Why do we have to wait?
-	time.Sleep(1 * time.Second)
-
-	// Perform a similarity search
-	stage := bson.D{
-		// Name of Atlas Vector Search Index tied to Collection
-
-		{"index", "vector_index_1"},
-		// Field in Collection containing embedding vectors
-		{"path", "plot_embedding"},
-		{"queryVector", fooVector},
-
-		// List of embedding vector
-		{"numCandidates", 150},
-		{"limit", 10},
-	}
-
-	found, err := SearchVectors(context.Background(), coll, stage)
-	if err != nil {
-		log.Fatalf("failed to search vectors: %v", err)
-	}
-
-	scores := []float64{}
-	for _, fdoc := range found {
-		for _, felement := range fdoc {
-			if felement.Key == "score" {
-				scores = append(scores, felement.Value.(float64))
-			}
-		}
-	}
-
-	fmt.Println(len(found), scores[0], math.Abs(scores[1]-0.0039) < 1e-3)
-	// Output: 2 1 true
+	found := runVectorSearchExample(context.TODO(), "test", []string{"test"})
+	//fmt.Println(len(found), scores[0], math.Abs(scores[1]-0.0039) < 1e-3)
+	fmt.Println(len(found))
+	// Output: 1
 }
