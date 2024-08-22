@@ -27,7 +27,7 @@ IterSwitch:
 	return
 }
 
-// GCD algorithm proposed by ChatGPT:
+// GCD algorithm proposed by ChatGPT.
 func gcdAlgorithm2(high, low int) int {
 	// Continue until the remainder becomes zero
 	for low != 0 {
