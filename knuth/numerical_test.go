@@ -25,9 +25,70 @@ func TestGCD(t *testing.T) {
 			high: 1,
 			want: 1,
 		},
+		{
+			name: "3 and 5",
+			low:  3,
+			high: 5,
+			want: 1,
+		},
+		{
+			name: "6 and 9",
+			low:  6,
+			high: 9,
+			want: 3,
+		},
+		{
+			name: "15 and 10",
+			low:  15,
+			high: 10,
+			want: 5,
+		},
+		{
+			name: "56 and 15",
+			low:  56,
+			high: 15,
+			want: 1,
+		},
+		{
+			name: "48 and 18",
+			low:  48,
+			high: 18,
+			want: 6,
+		},
+		{
+			name: "100 and 25",
+			low:  100,
+			high: 25,
+			want: 25,
+		},
+		{
+			name: "270 and 192",
+			low:  270,
+			high: 192,
+			want: 6,
+		},
+		{
+			name: "462 and 1071",
+			low:  462,
+			high: 1071,
+			want: 21,
+		},
+		{
+			name: "0 and 5",
+			low:  0,
+			high: 5,
+			want: 5,
+		},
+		{
+			name: "0 and 0",
+			low:  0,
+			high: 0,
+			want: 0, // Depending on how you want to handle the case where both are zero
+		},
 	}
 
 	for _, tt := range tests {
+		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			got := GCD(tt.low, tt.high)
 

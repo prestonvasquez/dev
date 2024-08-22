@@ -2,6 +2,10 @@ package knuth
 
 // Agorithm E1 from Knuth's TAOCP Volume 1, section 1.1.
 func gcdAlgorithm1(high, low, remainder, iter int) (newH int, newL int, newR int, newI int) {
+	if high == low {
+		return high, 0, 0, 0
+	}
+
 IterSwitch:
 	switch iter {
 	case 1:
@@ -29,6 +33,7 @@ func gcdAlgorithm2(high, low int) int {
 	for low != 0 {
 		high, low = low, high%low
 	}
+
 	return high
 }
 
@@ -39,6 +44,7 @@ func gcdAlgorithm3(a, b int) int {
 	if a == 0 {
 		return b
 	}
+
 	if b == 0 {
 		return a
 	}
