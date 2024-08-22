@@ -1,6 +1,6 @@
-package knuth
+package algorithm
 
-// Agorithm E1 from Knuth's TAOCP Volume 1, section 1.1.
+// GCD algorithm E1 from Knuth's TAOCP Volume 1, section 1.1.
 func gcdAlgorithm1(high, low, remainder, iter int) (newH int, newL int, newR int, newI int) {
 	if high == low {
 		return high, 0, 0, 0
@@ -27,7 +27,7 @@ IterSwitch:
 	return
 }
 
-// Algorithm proposed by ChatGPT:
+// GCD algorithm proposed by ChatGPT:
 func gcdAlgorithm2(high, low int) int {
 	// Continue until the remainder becomes zero
 	for low != 0 {
@@ -37,8 +37,7 @@ func gcdAlgorithm2(high, low int) int {
 	return high
 }
 
-// Stein's algorithm for finding the greatest common divisor of two numbers.
-// AKA Binary GCD algorithm.
+// Stein's GCD algorithm, AKA Binary GCD algorithm.
 func gcdAlgorithm3(a, b int) int {
 	// Base cases
 	if a == 0 {
@@ -82,7 +81,8 @@ func gcdAlgorithm3(a, b int) int {
 	return a << shift
 }
 
-// GCD returns the greatest common divisor of two numbers
+// GCD returns the greatest common divisor of two numbers using the Knuth
+// algorithm.
 func GCD(a, b int) int {
 	res, _, _, _ := gcdAlgorithm1(a, b, 0, 1)
 

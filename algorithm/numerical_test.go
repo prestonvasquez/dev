@@ -1,4 +1,4 @@
-package knuth
+package algorithm
 
 import (
 	"testing"

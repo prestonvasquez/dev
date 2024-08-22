@@ -1,4 +1,4 @@
-module github.com/prestonvasquez/dev/knuth
+module github.com/prestonvasquez/dev/algorithm
 
 go 1.23
 
