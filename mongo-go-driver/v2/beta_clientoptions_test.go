@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -59,4 +60,26 @@ func getOptions[T any](mopts BetaLister[T]) (*T, error) {
 	return opts, nil
 }
 
-func TestBetaClientOptions(t *testing.T) {}
+func TestBetaClientOptions(t *testing.T) {
+	opts1 := &BetaOptions{X: "x"}
+	opts2 := &BetaOptions{Y: "y"}
+
+	opts := Beta()
+
+	opts.Opts = append(opts.Opts, func(o *BetaOptions) error {
+		*o = *opts1
+
+		return nil
+	})
+
+	opts.Opts = append(opts.Opts, func(o *BetaOptions) error {
+		*o = *opts2
+
+		return nil
+	})
+
+	mergedOpts, _ := getOptions(opts)
+	assert.Equal(t, "x", mergedOpts.X)
+	assert.Equal(t, "y", mergedOpts.Y)
+
+}
