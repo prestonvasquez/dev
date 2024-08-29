@@ -16,5 +16,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/pkoukk/tiktoken-go v0.1.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
+	golang.org/x/crypto v0.23.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
