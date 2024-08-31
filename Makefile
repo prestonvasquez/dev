@@ -1,16 +1,16 @@
 # Define the path to the script and cron job details
-SCRIPT_PATH := os/run-trashdop.sh
+SCRIPT_PATH := scripts/os/run-trashdop.sh
 CRON_EXPRESSION := "*/30 * * * * $(SCRIPT_PATH)"
 
+# Ensure the script is executable
+$(SCRIPT_PATH):
+	chmod +x $(SCRIPT_PATH)
+
 # The target to add the cron job
-install-cron:
+install-cron: $(SCRIPT_PATH)
 	@echo "Adding cron job for trashdop..."
 	@crontab -l | { cat; echo $(CRON_EXPRESSION); } | crontab -
 	@echo "Cron job added successfully."
-
-# Ensure the script is executable
-install-cron: $(SCRIPT_PATH)
-	@chmod +x $(SCRIPT_PATH)
 
 .PHONY: driver-sanity-test
 driver-sanity-test:
