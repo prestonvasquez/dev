@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 
@@ -22,7 +21,6 @@ func main() {
 	uri := os.Args[1]
 
 	// Create a new client and connect to the server
-	fmt.Println("uri", uri)
 	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
