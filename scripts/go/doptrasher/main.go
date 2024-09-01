@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/gridfs"
@@ -22,20 +22,13 @@ func main() {
 	uri := os.Args[1]
 
 	// Create a new client and connect to the server
+	fmt.Println("uri", uri)
 	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err = client.Connect(ctx)
-	if err != nil {
-		log.Fatalf("Failed to connect to MongoDB: %v", err)
-	}
-
-	defer client.Disconnect(ctx)
+	defer func() { _ = client.Disconnect(context.Background()) }()
 
 	// Specify the database and bucket name
 	db := client.Database("diskhop")
