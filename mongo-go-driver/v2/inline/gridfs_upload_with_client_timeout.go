@@ -31,8 +31,11 @@ func main() {
 		data.WriteString("some large stuff")
 	}
 
-	_, err = bucket.UploadFromStream(context.Background(), "huge_data", bytes.NewBuffer(data.Bytes()))
+	id, err := bucket.UploadFromStream(context.Background(), "huge_data", bytes.NewBuffer(data.Bytes()))
 	if err != nil {
 		log.Fatalf("failed to open upload stream: %v", err)
 	}
+
+	// Upload stream with the created ID.
+
 }

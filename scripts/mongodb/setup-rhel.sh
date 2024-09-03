@@ -11,16 +11,16 @@ export DRIVERS_TOOLS=$HOME/drivers-evergreen-tools
 export PROJECT_DIRECTORY=$HOME/mongo-go-driver
 export MONGO_ORCHESTRATION_HOME=$DRIVERS_TOOLS/.evergreen/orchestration
 
-# Remove the mongodb dir if it already exists in driver tools 
+# Remove the mongodb dir if it already exists in driver tools
 rm -rf $DRIVERS_TOOLS/mongodb
 
 # Start the server on 27017
-TOPOLOGY="replica_set" MONGODB_VERSION="7.0" sh $DRIVERS_TOOLS/.evergreen/run-orchestration.sh
+TOPOLOGY="sharded_cluster" MONGODB_VERSION="7.0" sh $DRIVERS_TOOLS/.evergreen/run-orchestration.sh
 sudo netstat -tuln | grep 27017
 
 # Install the libmongocrypt stuff
 git clone https://github.com/mongodb/libmongocrypt --depth=1 --branch 1.8.2
-./libmongocrypt/.evergreen/compile.sh 
+./libmongocrypt/.evergreen/compile.sh
 rm -rf libmongocrypt
 
 echo "export the following: 

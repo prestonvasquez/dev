@@ -14,6 +14,8 @@ import (
 
 // What happens if we run a Find command with a very large timout, but have a
 // client with a very small timeout?
+//
+// Result: operation-level timeout is honored
 func main() {
 	client, err := mongo.Connect(options.Client().SetTimeout(1 * time.Second))
 	if err != nil {
