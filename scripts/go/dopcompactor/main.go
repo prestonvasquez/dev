@@ -28,13 +28,19 @@ func main() {
 
 	defer func() { _ = client.Disconnect(context.Background()) }()
 
-	// Specify the database
-	db := client.Database("vid")
+	dbs := []string{"vid", "diskhop"}
 
-	// List all GridFS buckets and compact them, excluding "trash"
-	err = compactAllBuckets(db, "trash")
-	if err != nil {
-		log.Fatalf("Failed to compact buckets: %v", err)
+	for _, db := range dbs {
+		log.Printf("Compacting GridFS buckets in database: %s", db)
+
+		// Specify the database
+		db := client.Database(db)
+
+		// List all GridFS buckets and compact them, excluding "trash"
+		err = compactAllBuckets(db, "trash")
+		if err != nil {
+			log.Fatalf("Failed to compact buckets: %v", err)
+		}
 	}
 
 	log.Println("Buckets compacted successfully")
