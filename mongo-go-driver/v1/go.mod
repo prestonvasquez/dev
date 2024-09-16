@@ -10,7 +10,7 @@ require (
 	go.mongodb.org/mongo-driver v1.16.0
 )
 
-replace go.mongodb.org/mongo-driver => /Users/preston.vasquez/Developer/mongo-go-driver
+//replace go.mongodb.org/mongo-driver => /Users/preston.vasquez/Developer/mongo-go-driver
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

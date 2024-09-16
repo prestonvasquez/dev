@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"log"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -15,7 +16,7 @@ func main() {
 
 	sess, err := client.StartSession()
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to start session: %v", err)
 	}
 
 	coll := client.Database("db").Collection("coll")
@@ -26,6 +27,6 @@ func main() {
 	})
 
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to run transaction: %v", err)
 	}
 }
