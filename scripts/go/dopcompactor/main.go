@@ -28,7 +28,7 @@ func main() {
 	defer func() { _ = client.Disconnect(context.Background()) }()
 
 	// Specify the database
-	db := client.Database("desktop")
+	db := client.Database("diskhop")
 
 	// List all GridFS buckets and compact them, excluding "trash"
 	err = compactAllBuckets(db, "trash")
