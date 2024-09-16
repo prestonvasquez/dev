@@ -29,7 +29,7 @@ func main() {
 	defer func() { _ = client.Disconnect(context.Background()) }()
 
 	// Specify the database
-	db := client.Database("diskhop")
+	db := client.Database("vid")
 
 	// List all GridFS buckets and compact them, excluding "trash"
 	err = compactAllBuckets(db, "trash")
@@ -54,17 +54,17 @@ func compactAllBuckets(db *mongo.Database, excludeBucket string) error {
 			continue
 		}
 
-		// Compact the files and chunks collections
-		filesCollection := collection
-		chunksCollection := collection[:len(collection)-6] + ".chunks" // Remove ".files" and add ".chunks"
+		//// Compact the files and chunks collections
+		//filesCollection := collection
+		//chunksCollection := collection[:len(collection)-6] + ".chunks" // Remove ".files" and add ".chunks"
 
-		if err := compactCollection(db, filesCollection); err != nil {
+		if err := compactCollection(db, collection); err != nil {
 			return fmt.Errorf("failed to compact files collection: %v", err)
 		}
 
-		if err := compactCollection(db, chunksCollection); err != nil {
-			return fmt.Errorf("failed to compact chunks collection: %v", err)
-		}
+		//if err := compactCollection(db, chunksCollection); err != nil {
+		//	return fmt.Errorf("failed to compact chunks collection: %v", err)
+		//}
 	}
 
 	return nil
