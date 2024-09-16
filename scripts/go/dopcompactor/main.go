@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -58,11 +59,11 @@ func compactAllBuckets(db *mongo.Database, excludeBucket string) error {
 		chunksCollection := collection[:len(collection)-6] + ".chunks" // Remove ".files" and add ".chunks"
 
 		if err := compactCollection(db, filesCollection); err != nil {
-			return err
+			return fmt.Errorf("failed to compact files collection: %v", err)
 		}
 
 		if err := compactCollection(db, chunksCollection); err != nil {
-			return err
+			return fmt.Errorf("failed to compact chunks collection: %v", err)
 		}
 	}
 
