@@ -48,6 +48,7 @@ func compactAllBuckets(db *mongo.Database, excludeBucket string) error {
 	}
 
 	for _, collection := range collections {
+		log.Printf("Compacting collection: %s", collection)
 		if collection == excludeBucket+".files" || collection == excludeBucket+".chunks" {
 			continue
 		}
