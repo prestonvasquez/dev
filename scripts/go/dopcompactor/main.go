@@ -21,7 +21,7 @@ func main() {
 	uri := os.Args[1]
 
 	// Create a new client and connect to the server
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri).SetDirect(true))
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
@@ -60,17 +60,9 @@ func compactAllBuckets(db *mongo.Database, excludeBucket string) error {
 			continue
 		}
 
-		//// Compact the files and chunks collections
-		//filesCollection := collection
-		//chunksCollection := collection[:len(collection)-6] + ".chunks" // Remove ".files" and add ".chunks"
-
 		if err := compactCollection(db, collection); err != nil {
 			return fmt.Errorf("failed to compact files collection: %v", err)
 		}
-
-		//if err := compactCollection(db, chunksCollection); err != nil {
-		//	return fmt.Errorf("failed to compact chunks collection: %v", err)
-		//}
 	}
 
 	return nil
