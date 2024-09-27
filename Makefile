@@ -18,5 +18,10 @@ driver-sanity-test:
 
 .PHONY: install-diskhop-trasher
 install-diskhop-trasher:
-	scripts/os/install-diskhop-trasher.sh
 	chmod +x scripts/os/install-diskhop-trasher.sh
+	scripts/os/install-diskhop-trasher.sh
+
+.PHONY: install-diskhop-compactor
+install-diskhop-compactor:
+	chmod +x scripts/os/install-diskhop-compactor.sh
+	scripts/os/install-diskhop-compactor.sh
