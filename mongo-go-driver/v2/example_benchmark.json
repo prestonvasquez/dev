@@ -1,0 +1,57 @@
+{
+    "message": "New change point detected.",
+    "request_id": "dd6bee13-7d4a-4968-a382-920ae00addc5",
+    "user": "time_series_processor",
+    "change_point": {
+      "time_series_info": {
+        "project": "mongo-go-driver",
+        "variant": "perf",
+        "task": "perf",
+        "test": "SingleRunCommand-throughput",
+        "measurement": "seconds",
+        "args": {
+          "threads": 1
+        }
+      },
+      "cedar_perf_result_id": "451f9944200ba789698763f24e763d453eee0020",
+      "version": "mongo_go_driver_8ce6548c28cc7d3e370368a459a98dc04b6e3cc5",
+      "commit": "8ce6548c28cc7d3e370368a459a98dc04b6e3cc5",
+      "commit_date": "2024-06-07T16:21:34+00:00",
+      "evg_create_date": "2024-06-07T16:21:34+00:00",
+      "author": "Qingyang Hu",
+      "author_email": "qingyang.hu@mongodb.com",
+      "branch": "master",
+      "message": "GODRIVER-2977 Remove \"import comment\" from \"primitive.go\". (#1665)",
+      "repo_full_name": "mongodb/mongo-go-driver",
+      "order": 1914,
+      "algorithm": {
+        "name": "e_divisive_means",
+        "version": 0,
+        "options": [
+          {
+            "name": "pvalue",
+            "value": "0.05"
+          },
+          {
+            "name": "permutations",
+            "value": "100"
+          }
+        ]
+      },
+      "triage": {
+        "triaged_on": "2024-09-18T15:32:10.355261",
+        "triage_status": "not_triaged"
+      },
+      "percent_change": 16.76308931279953,
+      "z_score_change": 1.9376210952071653,
+      "h_score": 0.32154886247745923,
+      "absolute_change": 29.98387878787878,
+      "calculated_on": "2024-09-18T15:32:10.355271",
+      "triage_contexts": [],
+      "task_id": "mongo_go_driver_perf_perf_8ce6548c28cc7d3e370368a459a98dc04b6e3cc5_24_06_07_16_21_34",
+      "detection_delay_points": 76
+    },
+    "logger": "signal_processing_service.time_series.service",
+    "level": "info"
+  }
+
