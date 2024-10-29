@@ -1,4 +1,4 @@
-package csot2884
+package csot
 
 import (
 	"context"
@@ -12,8 +12,10 @@ type monitor struct {
 	commandMonitor *event.CommandMonitor
 	poolMonitor    *event.PoolMonitor
 
-	commandStarted   map[string]*event.CommandStartedEvent // cmd -> event
-	connectionClosed map[int64]*event.PoolEvent            // connectionID -> event
+	commandStarted       map[string][]*event.CommandStartedEvent // cmd -> event
+	connectionCheckedOut map[int64][]*event.PoolEvent
+	connectionCheckedIn  map[int64][]*event.PoolEvent
+	connectionClosed     map[int64][]*event.PoolEvent // connectionID -> event
 
 	eventMu sync.Mutex
 }
@@ -31,8 +33,17 @@ func newMonitor(shouldLog bool, cmds ...string) *monitor {
 					}
 
 					monitor.eventMu.Lock()
-					monitor.commandStarted[cmd] = cse
+					monitor.commandStarted[cmd] = append(monitor.commandStarted[cmd], cse)
 					monitor.eventMu.Unlock()
+				}
+			}
+		},
+		Succeeded: func(ctx context.Context, cse *event.CommandSucceededEvent) {
+			for _, cmd := range cmds {
+				if cse.CommandName == cmd {
+					if shouldLog {
+						log.Printf("command Succeeded: %+v\n", cse)
+					}
 				}
 			}
 		},
@@ -54,17 +65,25 @@ func newMonitor(shouldLog bool, cmds ...string) *monitor {
 				if shouldLog {
 					log.Printf("connection checked in: %+v\n", pe)
 				}
+
+				monitor.eventMu.Lock()
+				monitor.connectionCheckedIn[pe.ConnectionID] = append(monitor.connectionCheckedIn[pe.ConnectionID], pe)
+				monitor.eventMu.Unlock()
 			case event.ConnectionCheckedOut:
 				if shouldLog {
 					log.Printf("connection checked out: %+v\n", pe)
 				}
+
+				monitor.eventMu.Lock()
+				monitor.connectionCheckedOut[pe.ConnectionID] = append(monitor.connectionCheckedOut[pe.ConnectionID], pe)
+				monitor.eventMu.Unlock()
 			case event.ConnectionClosed:
 				if shouldLog {
 					log.Printf("connection closed: %+v\n", pe)
 				}
 
 				monitor.eventMu.Lock()
-				monitor.connectionClosed[pe.ConnectionID] = pe
+				monitor.connectionClosed[pe.ConnectionID] = append(monitor.connectionClosed[pe.ConnectionID], pe)
 				monitor.eventMu.Unlock()
 			}
 		},
@@ -74,7 +93,9 @@ func newMonitor(shouldLog bool, cmds ...string) *monitor {
 }
 
 func (m *monitor) Reset() {
-	m.commandStarted = map[string]*event.CommandStartedEvent{}
-	m.connectionClosed = map[int64]*event.PoolEvent{}
+	m.commandStarted = map[string][]*event.CommandStartedEvent{}
+	m.connectionClosed = map[int64][]*event.PoolEvent{}
+	m.connectionCheckedIn = map[int64][]*event.PoolEvent{}
+	m.connectionCheckedOut = map[int64][]*event.PoolEvent{}
 	m.eventMu = sync.Mutex{}
 }
