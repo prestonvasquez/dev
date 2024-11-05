@@ -3,6 +3,7 @@ package csot
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,92 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+func loadLargeCollectionForClient(t *testing.T, coll *mongo.Collection) {
+	const volume = 1000
+	const goRoutines = 10
+	const batchSize = 500 // Size of batches to load for testing
+
+	docs := make([]interface{}, 0, batchSize)
+	for i := 0; i < batchSize; i++ {
+		docs = append(docs, bson.D{
+			{"field1", rand.Int63()},
+			{"field2", rand.Int31()},
+		})
+	}
+
+	perGoroutine := volume / goRoutines
+
+	errs := make(chan error, goRoutines*perGoroutine)
+	done := make(chan struct{}, goRoutines)
+
+	for i := 0; i < int(goRoutines); i++ {
+		go func(i int) {
+			for j := 0; j < perGoroutine; j++ {
+				_, err := coll.InsertMany(context.Background(), docs)
+				if err != nil {
+					errs <- fmt.Errorf("goroutine %v failed: %w", i, err)
+
+					break
+				}
+			}
+
+			done <- struct{}{}
+		}(i)
+	}
+
+	go func() {
+		defer close(errs)
+
+		for i := 0; i < int(goRoutines); i++ {
+			<-done
+		}
+	}()
+
+	// Await errors and return the first error encountered.
+	for err := range errs {
+		require.NoError(t, err)
+	}
+}
+
+func Test2884_ClientDisconnectBlocks(t *testing.T) {
+	monitor := newMonitor(true, "find")
+
+	opts := options.Client().
+		SetMaxPoolSize(1).
+		SetMonitor(monitor.commandMonitor)
+
+	client, err := mongo.Connect(opts)
+	require.NoError(t, err, "failed to connect to server")
+
+	// 1. Insert a huge amount of data
+
+	unindexedColl := client.Database("testdb").Collection("coll")
+	//defer func() { unindexedColl.Drop(context.Background()) }()
+
+	// Load the test data.
+	loadLargeCollectionForClient(t, unindexedColl)
+
+	// 2. Set low t/o on the operation to query it
+	query := bson.D{{"field1", "doesntexist"}}
+
+	const threshold = 100
+
+	t.Log("starting op iteration")
+	for i := 0; i < threshold; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+		defer cancel()
+
+		err = unindexedColl.FindOne(ctx, query).Err()
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+
+		// 3. disconnect t/o and see what happens
+		t.Logf("about to disconnect: %v\n", i)
+
+		err = client.Disconnect(context.Background())
+		require.NoError(t, err)
+	}
+}
 
 func Test2884_CloseWhenNoRemainingTime(t *testing.T) {
 	monitor := newMonitor(true, "insert")
