@@ -21,12 +21,12 @@ func main() {
 
 	coll := client.Database("db").Collection("coll")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
 	ctx = context.WithValue(ctx, "itest", true)
 
-	_, err = coll.InsertOne(ctx, bson.D{{"x", 1}})
+	_, err = coll.InsertOne(ctx, bson.D{})
 	if err != nil {
 		panic(err)
 	}
@@ -37,6 +37,11 @@ func monitor() *event.CommandMonitor {
 		Started: func(ctx context.Context, cse *event.CommandStartedEvent) {
 			if cse.CommandName == "insert" {
 				fmt.Printf("started: %+v\n", cse)
+			}
+		},
+		Succeeded: func(ctx context.Context, cse *event.CommandSucceededEvent) {
+			if cse.CommandName == "insert" {
+				fmt.Printf("succeeded: %+v\n", cse)
 			}
 		},
 	}

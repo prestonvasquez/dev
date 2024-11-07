@@ -123,36 +123,6 @@ func Test2884_CloseWhenNoRemainingTime(t *testing.T) {
 
 	defer teardown()
 
-	//// Start a session
-	//session, err := client.StartSession()
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-	//defer session.EndSession(context.Background())
-
-	//// Use the session to run commands
-	//err = session.StartTransaction()
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-
-	//db := client.Database("db")
-
-	//cmd := bson.D{
-	//	{"insert", "coll"},
-	//	{"documents", bson.A{bson.D{{"y", 1}}}},
-	//	{"maxTimeMS", 50},
-	//}
-
-	//// Define the session context
-	//sessionCtx := mongo.NewSessionContext(context.Background(), session)
-
-	//res := db.RunCommand(sessionCtx, cmd)
-	//assert.ErrorIs(t, res.Err(), context.DeadlineExceeded)
-
-	//res = db.RunCommand(sessionCtx, cmd)
-	//assert.ErrorIs(t, res.Err(), context.DeadlineExceeded)
-
 	coll := client.Database("db").Collection("coll")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -168,6 +138,12 @@ func Test2884_CloseWhenNoRemainingTime(t *testing.T) {
 
 	_, err = coll.InsertMany(ctx, []bson.D{bson.D{{"y", 1}}})
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
+
+	// Expected events
+	assert.Len(t, monitor.commandStarted, 1)
+	assert.Len(t, monitor.commandFailed, 1)
+	assert.Len(t, monitor.connectionPendingReadStarted, 1)
+	assert.Len(t, monitor.connectionClosed, 1)
 }
 
 func Test2884_ConcurrentOps(t *testing.T) {
@@ -219,7 +195,7 @@ func Test2884_ConcurrentOps(t *testing.T) {
 // Ensure that re-use of a connection for a pending read doesn't depend on
 // checking that connection back into the pool.
 func Test2884_CheckInState(t *testing.T) {
-	monitor := newMonitor(false, "insert")
+	monitor := newMonitor(true, "insert")
 
 	opts := options.Client().
 		SetMonitor(monitor.commandMonitor).
@@ -233,8 +209,8 @@ func Test2884_CheckInState(t *testing.T) {
 		_ = client.Disconnect(context.Background())
 	}()
 
-	// Create a failpoint that will block 1 time for 150ms.
-	teardown, err := createBlockFP(t, client, "insert", 250, 1)
+	// Create a failpoint that will block 1 time for 450ms.
+	teardown, err := createBlockFP(t, client, "insert", 450, 1)
 	require.NoError(t, err, "failed to create blocking failpoint")
 
 	defer teardown()
@@ -243,18 +219,18 @@ func Test2884_CheckInState(t *testing.T) {
 
 	monitor.Reset()
 
-	// Insert a document three times, each with a timeout of 75ms.
+	// Insert a document three times, each with a timeout of 200ms.
 	//
 	//   - First time should time out sending the message
 	//   - Second time should time out attempting the pending read in check out
 	//   - Third time succeeds
 	//
 	// We expect the same connection to be used for all operations.
-	for i := 0; i < 3; i++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	for i := 1; i < 4; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 
 		_, err := coll.InsertOne(ctx, bson.D{})
-		if i < 2 {
+		if i < 3 {
 			assert.ErrorIs(t, err, context.DeadlineExceeded, "iter %d was not a CSOT error", i)
 		} else {
 			require.NoError(t, err, "insert for iter %d failed", i)
@@ -273,9 +249,18 @@ func Test2884_CheckInState(t *testing.T) {
 		break
 	}
 
-	// Expect 3 check outs and 3 check ins
+	// Expect 2 check outs and 2 check ins
 	assert.Len(t, monitor.connectionCheckedOut[connID], 2)
 	assert.Len(t, monitor.connectionCheckedIn[connID], 2)
+
+	// Expect 2 await pending reads
+	assert.Len(t, monitor.connectionPendingReadStarted[connID], 2)
+
+	// Expect 1 pending read to fail
+	assert.Len(t, monitor.connectionPendingReadFailed[connID], 1)
+
+	// Expect 1 pending read to succeed
+	assert.Len(t, monitor.connectionPendingReadSucceeded[connID], 1)
 }
 
 func Test_3006_ChangeStream(t *testing.T) {
