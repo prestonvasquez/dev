@@ -201,6 +201,8 @@ github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tmc/langchaingo v0.1.12 h1:yXwSu54f3b1IKw0jJ5/DWu+qFVH1NBblwC0xddBzGJE=
 github.com/tmc/langchaingo v0.1.12/go.mod h1:cd62xD6h+ouk8k/QQFhOsjRYBSA1JJ5UVKXSIgm7Ni4=
+github.com/tmc/langchaingo v0.1.13-pre.0 h1:bmeNREQX433Ys4gggx5AYnJxP/tZX7/vTTMAZbMnbeQ=
+github.com/tmc/langchaingo v0.1.13-pre.0/go.mod h1:EeervIv/DNYhSfQSMaql20wMFvhgF7lDaVaatp8lVPw=
 github.com/xdg-go/pbkdf2 v1.0.0 h1:Su7DPu48wXMwC3bs7MCNG+z4FhcyEuz5dlvchbq0B0c=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=
 github.com/xdg-go/scram v1.1.1/go.mod h1:RaEWvsqvNKKvBPvcKeFjrG2cJqOkHTiyTpzz23ni57g=
