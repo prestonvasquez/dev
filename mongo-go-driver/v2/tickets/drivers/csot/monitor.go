@@ -95,7 +95,7 @@ func newMonitor(shouldLog bool, cmds ...string) *monitor {
 				monitor.eventMu.Unlock()
 			case event.ConnectionPendingReadStarted:
 				if shouldLog {
-					log.Printf("connection awaiting pending read: %v\n", pe)
+					log.Printf("connection awaiting pending read: %+v\n", pe)
 				}
 
 				monitor.connectionPendingReadStarted[pe.ConnectionID] = append(monitor.connectionPendingReadStarted[pe.ConnectionID], pe)
@@ -103,7 +103,7 @@ func newMonitor(shouldLog bool, cmds ...string) *monitor {
 				monitor.eventMu.Unlock()
 			case event.ConnectionPendingReadFailed:
 				if shouldLog {
-					log.Printf("connection pending read failed: %v\n", pe)
+					log.Printf("connection pending read failed: %+v\n", pe)
 				}
 
 				monitor.eventMu.Lock()
@@ -111,7 +111,7 @@ func newMonitor(shouldLog bool, cmds ...string) *monitor {
 				monitor.eventMu.Unlock()
 			case event.ConnectionPendingReadSucceeded:
 				if shouldLog {
-					log.Printf("connection pending read succeeded: %v\n", pe)
+					log.Printf("connection pending read succeeded: %+v\n", pe)
 				}
 
 				monitor.eventMu.Lock()
