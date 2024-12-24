@@ -4,8 +4,10 @@ go 1.22.0
 
 toolchain go1.22.6
 
+replace go.mongodb.org/mongo-driver => /Users/preston.vasquez/Developer/mongo-go-driver-2
+
 require (
-	github.com/joho/godotenv v1.5.1
+	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
 	github.com/tmc/langchaingo v0.1.12
 	go.mongodb.org/mongo-driver v1.16.0

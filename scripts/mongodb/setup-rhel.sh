@@ -24,7 +24,7 @@ git clone https://github.com/mongodb/libmongocrypt --depth=1 --branch 1.8.2
 rm -rf libmongocrypt
 
 echo "export the following: 
-GO_VERSION="go1.20"
+GO_VERSION="go1.22"
 
 export PATH="$PATH:/opt/golang/$GO_VERSION/bin"
 export GOROOT="/opt/golang/$GO_VERSION"

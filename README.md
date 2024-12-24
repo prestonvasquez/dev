@@ -13,6 +13,15 @@ rhel:
 rsync -avc mongo-go-driver ec2-user@ec2-3-101-57-57.us-west-1.compute.amazonaws.com:/home/ec2-user/
 ```
 
+## Switch Go Version 
+
+```
+GO_VERSION="go1.22.7"
+
+export PATH="$PATH:$HOME/go/bin"
+export GOROOT="$HOME/go/bin/$GO_VERSION"
+```
+
 ## Resources 
 
 - [Godoc](https://go.googlesource.com/tools/+/refs/heads/master/godoc/#godoc)

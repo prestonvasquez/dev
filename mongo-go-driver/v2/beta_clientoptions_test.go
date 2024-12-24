@@ -1,8 +1,10 @@
 package v2
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // Here is the proposed options pattern for the beta:
@@ -83,3 +85,17 @@ func TestBetaClientOptions(t *testing.T) {
 	assert.Equal(t, "y", mergedOpts.Y)
 
 }
+
+
+clientBldr, err := GetReplicaSetClientOptions(&clusterConfig, TestConnRsName, &logger)
+
+var clientOpts options.ClientOptions
+for _, set := range clientBldr {
+	_ = set(&clientOpts)
+}
+
+assert.NotNil(t, clientOpts)
+assert.Nil(t, err)
+credentials := clientOpts.Auth
+
+assert.Equal(t, TestConnUsername, credentials.Username)
