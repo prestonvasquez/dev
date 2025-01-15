@@ -17,7 +17,7 @@ source secrets-export.sh
 
 #cd $DRIVER_PATH || exit
 #
-test ./internal/integration -run=$1 -v -tags=cse -failfast
+#test ./internal/integration -run=$1 -v -tags=cse -failfast
 ##go test ./internal/integration/unified -run=$1 -v -tags=cse -failfast
 #
 #rm -rf secrets-export.sh

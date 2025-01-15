@@ -431,3 +431,24 @@ func TestOpTimeLTPendingReadLimit(t *testing.T) {
 	// Expect no closures
 	assert.Zero(t, len(monitor.connectionClosed))
 }
+
+func Test2884_NoDeadline(t *testing.T) {
+	client, err := mongo.Connect()
+	require.NoError(t, err, "failed to connect to server")
+
+	defer func() {
+		_ = client.Disconnect(context.Background())
+	}()
+
+	// Create a failpoint that will block 1 time for 150ms.
+	teardown, err := createBlockFP(t, client, "insert", 60_000, 1)
+	require.NoError(t, err, "failed to create blocking failpoint")
+
+	defer teardown()
+
+	coll := client.Database("db").Collection("coll")
+
+	st := time.Now()
+	_, err = coll.InsertMany(context.Background(), []bson.D{bson.D{{"y", 1}}})
+	fmt.Println("elapsed: ", time.Since(st))
+}

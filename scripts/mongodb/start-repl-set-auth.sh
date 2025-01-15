@@ -6,5 +6,5 @@ echo "export AUTH=auth"
 echo "export MONGODB_URI=mongodb://bob:pwd123@localhost:27017"
 
 cd ${DRIVERS_TOOLS}/.evergreen/docker
-TOPOLOGY=replica_set ORCHESTRATION_FILE=auth.json bash ./run-server.sh  
+ARCH=amd64 TOPOLOGY=replica_set ORCHESTRATION_FILE=auth.json bash ./run-server.sh  
 
