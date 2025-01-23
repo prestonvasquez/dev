@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/event"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"golang.org/x/exp/rand"
@@ -44,7 +45,7 @@ func main() {
 	}
 
 	// Connect to MongoDB
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
@@ -199,39 +200,125 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 		uri = "mongodb://localhost:27017"
 	}
 
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
-	if err != nil {
-		log.Fatalf("Failed to connect for timeout experiment: %v", err)
+	var connectionsClosed atomic.Int64
+
+	connectionReadyDurationsMu := sync.Mutex{}
+	connectionReadyDurations := []float64{}
+
+	connectionPendingReadDurationMu := sync.Mutex{}
+	connectionPendingReadDurations := []float64{}
+	connectionPendingCount := 0
+
+	poolMonitor := &event.PoolMonitor{
+		Event: func(pe *event.PoolEvent) {
+			switch pe.Type {
+			case event.ConnectionPendingReadDuration:
+				connectionPendingReadDurationMu.Lock()
+				connectionPendingReadDurations = append(connectionPendingReadDurations, float64(pe.Duration)/float64(time.Millisecond))
+				connectionPendingCount++
+				connectionPendingReadDurationMu.Unlock()
+			case event.ConnectionClosed:
+				connectionsClosed.Add(1)
+			case event.ConnectionReady:
+				connectionReadyDurationsMu.Lock()
+				connectionReadyDurations = append(connectionReadyDurations, float64(pe.Duration)/float64(time.Millisecond))
+				connectionReadyDurationsMu.Unlock()
+			}
+		},
 	}
+
+	var commandFailed atomic.Int64
+	var commandSucceeded atomic.Int64
+	var commandStarted atomic.Int64
+
+	cmdMonitor := &event.CommandMonitor{
+		Started: func(_ context.Context, cse *event.CommandStartedEvent) {
+			if cse.CommandName == "find" {
+				commandStarted.Add(1)
+			}
+		},
+		Succeeded: func(_ context.Context, cse *event.CommandSucceededEvent) {
+			if cse.CommandName == "find" {
+				commandSucceeded.Add(1)
+			}
+		},
+		Failed: func(_ context.Context, evt *event.CommandFailedEvent) {
+			if evt.CommandName == "find" {
+				commandFailed.Add(1)
+			}
+		},
+	}
+
+	client, err := mongo.Connect(options.Client().ApplyURI(uri).SetPoolMonitor(poolMonitor).SetMonitor(cmdMonitor))
+	if err != nil {
+		log.Fatalf("failed to connect: %v", err)
+	}
+
 	defer func() {
 		if err := client.Disconnect(context.Background()); err != nil {
-			log.Fatalf("Failed to disconnect timeout experiment client: %v", err)
+			log.Fatalf("failed to disconnect: %v", err)
 		}
 	}()
 
-	collection := client.Database("testdb").Collection(collectionName)
-	log.Println("[Timeout Experiment] Starting queries with timeouts.")
+	db := client.Database("testdb")
+	coll := db.Collection(collectionName)
+
+	log.Println("[Experiment] starting timeout queries")
 
 	opCount := 0
-	timeoutCount := 0
+	timeoutErrCount := 0
+	opDurs := []float64{}
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("[Timeout Experiment] Completed. Total operations: %d, Timeouts: %d", opCount, timeoutCount)
+			log.Printf(`[Experiment] results: {
+	"connections_closed": %v,  
+	"connections_ready": %v,
+	"pending_reads": %v,
+	"commands_failed": %v, 
+	"commands_started": %v, 
+	"commands_succeeded": %v,
+	"average_connection_ready_duration_ms": %v, 
+	"median_connection_ready_duration_ms": %v,
+	"op_count": %v,
+	"timeout_err_count": %v,
+	"average_pending_read_dur_ms": %v,
+	"median_pending_read_dur_ms": %v,
+	"average_op_duration": %v, 
+	"median_op_duration": %v
+}`, connectionsClosed.Load(),
+				len(connectionReadyDurations),
+				connectionPendingCount,
+				commandFailed.Load(),
+				commandStarted.Load(),
+				commandSucceeded.Load(),
+				average(connectionReadyDurations),
+				median(connectionReadyDurations),
+				opCount,
+				timeoutErrCount,
+				average(connectionPendingReadDurations),
+				median(connectionPendingReadDurations),
+				average(opDurs),
+				median(opDurs),
+			)
 			return
 		default:
-			queryCtx, cancel := context.WithTimeout(context.Background(), experimentTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), experimentTimeout)
+
 			query := bson.D{{Key: "field1", Value: "doesntexist"}}
 
-			start := time.Now()
-			result := collection.FindOne(queryCtx, query)
-			cancel()
+			opStart := time.Now()
+			result := coll.FindOne(ctx, query)
+			opDurs = append(opDurs, float64(time.Since(opStart))/float64(time.Millisecond))
 
 			if errors.Is(result.Err(), context.DeadlineExceeded) {
-				timeoutCount++
+				timeoutErrCount++
 			}
+
 			opCount++
+
+			cancel()
 		}
 	}
 }
@@ -271,4 +358,30 @@ func preloadLargeCollection(ctx context.Context, size int, client *mongo.Client)
 	}
 
 	return collectionName, nil
+}
+
+// median calculates the median of a sorted slice of float64 numbers.
+func median(sortedData []float64) float64 {
+	n := len(sortedData)
+	if n == 0 {
+		return 0 // Handle empty slice
+	}
+	if n%2 == 1 {
+		return sortedData[n/2] // Odd number of elements
+	}
+	// Even number of elements
+	mid := n / 2
+	return (sortedData[mid-1] + sortedData[mid]) / 2
+}
+
+// average calculates the mean of a slice of float64 numbers.
+func average(data []float64) float64 {
+	if len(data) == 0 {
+		return 0 // Handle empty slice to avoid division by zero
+	}
+	sum := 0.0
+	for _, value := range data {
+		sum += value
+	}
+	return sum / float64(len(data))
 }
