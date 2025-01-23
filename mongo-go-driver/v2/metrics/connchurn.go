@@ -59,10 +59,14 @@ func main() {
 	}
 
 	type throughput struct {
-		RunID             int64
-		Percentile        float64
-		ThroughputActual  float64
-		ThroughputSuccess float64
+		RunID                      int64
+		Percentile                 float64
+		ThroughputActual           float64
+		ThroughputSuccess          float64
+		Elapsed                    float64
+		ConnectionReadyDurationsMS []float64 `bson:"connectionreaddurationsms"`
+		ConnectionClosure          int64     `bson:"connectionclosure"`
+		PendingReadDurationsMS     []float64 `bson:"pendingreaddurationsms"`
 	}
 
 	trecords := []throughput{}
@@ -80,6 +84,18 @@ func main() {
 	fixTS := make([]float64, 0, len(trecords))
 	basTS := make([]float64, 0, len(trecords))
 
+	fixElapsed := make([]float64, 0, len(trecords))
+	basElapsed := make([]float64, 0, len(trecords))
+
+	fixConnectionReadyDurationsMS := []float64{}
+	basConnectionReadyDurationsMS := []float64{}
+
+	fixConnectionClosures := make([]float64, 0, len(trecords))
+	basConnectionClosures := make([]float64, 0, len(trecords))
+
+	fixPendingReadDurationsMS := []float64{}
+	basPendingReadDurationsMS := []float64{}
+
 	for _, rec := range trecords {
 		mrecord := metricsByPercentile[rec.Percentile]
 		if mrecord == nil {
@@ -95,6 +111,10 @@ func main() {
 
 			fixT = append(fixT, mrecord.Fix)
 			fixTS = append(fixTS, mrecord.FixSuccess)
+			fixElapsed = append(fixElapsed, rec.Elapsed)
+			fixConnectionReadyDurationsMS = append(fixConnectionReadyDurationsMS, rec.ConnectionReadyDurationsMS...)
+			fixConnectionClosures = append(fixConnectionClosures, float64(rec.ConnectionClosure))
+			fixPendingReadDurationsMS = append(fixPendingReadDurationsMS, rec.PendingReadDurationsMS...)
 		}
 
 		if rec.RunID == latestTwoRunIDs[1] {
@@ -103,6 +123,12 @@ func main() {
 
 			basT = append(basT, mrecord.Baseline)
 			basTS = append(basTS, mrecord.BaselineSuccess)
+
+			basElapsed = append(basElapsed, rec.Elapsed)
+			basConnectionReadyDurationsMS = append(basConnectionReadyDurationsMS, rec.ConnectionReadyDurationsMS...)
+
+			basConnectionClosures = append(basConnectionClosures, float64(rec.ConnectionClosure))
+			basPendingReadDurationsMS = append(basPendingReadDurationsMS, rec.PendingReadDurationsMS...)
 
 			diffs = append(diffs, mrecord.Fix-mrecord.Baseline)
 		}
@@ -128,33 +154,61 @@ func main() {
 	sort.Float64s(diffs)
 
 	stats := struct {
-		MedianDiff          float64
-		MedianFix           float64
-		MedianBaseline      float64
-		MedianFixS          float64
-		MedianBaselineS     float64
-		AverageImprovement  float64
-		AverageSImprovement float64
-		AverageDiff         float64
-		AverageFix          float64
-		AverageBaseline     float64
-		AverageFixS         float64
-		AverageBaselineS    float64
-		StdDiff             float64
+		MedianDiff                               float64
+		MedianFix                                float64
+		MedianBaseline                           float64
+		MedianFixS                               float64
+		MedianBaselineS                          float64
+		MedianConnectionReadyDurationMSFix       float64
+		MedianConnectionReadyDurationMSBaseline  float64
+		MedianConnectionClosureFix               float64
+		MedianConnectionClosureBaseline          float64
+		MedianPendingReadDurationMSFix           float64
+		MedianPendingReadDurationMSBaseline      float64
+		AverageImprovement                       float64
+		AverageSImprovement                      float64
+		AverageDiff                              float64
+		AverageFix                               float64
+		AverageBaseline                          float64
+		AverageFixS                              float64
+		AverageBaselineS                         float64
+		AverageElapsedFix                        float64
+		AverageElapsedBaseline                   float64
+		AverageConnectionReadyDuraitonMSFix      float64
+		AverageConnectionReadyDuraitonMSBaseline float64
+		AverageConnectionClosureFix              float64
+		AverageConnectionClosureBaseline         float64
+		AveragePendingReadDurationMSFix          float64
+		AveragePendingReadDurationMSBaseline     float64
+		StdDiff                                  float64
 	}{
-		MedianDiff:          median(diffs),
-		MedianFix:           median(fixT),
-		MedianBaseline:      median(basT),
-		MedianFixS:          median(fixTS),
-		MedianBaselineS:     median(basTS),
-		AverageImprovement:  ((average(fixT) - average(basT)) / average(basT)) * 100.0,
-		AverageSImprovement: ((average(fixTS) - average(basTS)) / average(basTS)) * 100.0,
-		AverageDiff:         average(diffs),
-		AverageFix:          average(fixT),
-		AverageBaseline:     average(basT),
-		AverageFixS:         average(fixTS),
-		AverageBaselineS:    average(basTS),
-		StdDiff:             standardDeviation(diffs),
+		MedianDiff:                               median(diffs),
+		MedianFix:                                median(fixT),
+		MedianBaseline:                           median(basT),
+		MedianFixS:                               median(fixTS),
+		MedianBaselineS:                          median(basTS),
+		MedianConnectionReadyDurationMSFix:       median(fixConnectionReadyDurationsMS),
+		MedianConnectionReadyDurationMSBaseline:  median(basConnectionReadyDurationsMS),
+		MedianConnectionClosureFix:               median(fixConnectionClosures),
+		MedianConnectionClosureBaseline:          median(basConnectionClosures),
+		MedianPendingReadDurationMSFix:           median(fixPendingReadDurationsMS),
+		MedianPendingReadDurationMSBaseline:      median(basPendingReadDurationsMS),
+		AverageImprovement:                       ((average(fixT) - average(basT)) / average(basT)) * 100.0,
+		AverageSImprovement:                      ((average(fixTS) - average(basTS)) / average(basTS)) * 100.0,
+		AverageDiff:                              average(diffs),
+		AverageFix:                               average(fixT),
+		AverageBaseline:                          average(basT),
+		AverageFixS:                              average(fixTS),
+		AverageBaselineS:                         average(basTS),
+		AverageElapsedFix:                        average(fixElapsed),
+		AverageElapsedBaseline:                   average(basElapsed),
+		AverageConnectionReadyDuraitonMSFix:      average(fixConnectionReadyDurationsMS),
+		AverageConnectionReadyDuraitonMSBaseline: average(basConnectionReadyDurationsMS),
+		AverageConnectionClosureFix:              average(fixConnectionClosures),
+		AverageConnectionClosureBaseline:         average(basConnectionClosures),
+		AveragePendingReadDurationMSFix:          average(fixPendingReadDurationsMS),
+		AveragePendingReadDurationMSBaseline:     average(basPendingReadDurationsMS),
+		StdDiff:                                  standardDeviation(diffs),
 	}
 
 	coll = client.Database(defaultConnectionChurnDB).Collection(throughputMetricsStatsColl)
