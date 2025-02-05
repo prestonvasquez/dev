@@ -72,7 +72,7 @@ func (rtc *roundTripConn) Read(p []byte) (int, error) {
 			if rtc.state == stateWaitingReply {
 				rtc.roundTripCount++
 				rtc.byteCountList = append(rtc.byteCountList, n)
-				rtc.rttDursMS = append(rtc.rttDursMS, float64(dur.Milliseconds()))
+				rtc.rttDursMS = append(rtc.rttDursMS, float64(dur.Nanoseconds()))
 			}
 		}
 		rtc.mu.Unlock()
@@ -178,8 +178,8 @@ func main() {
 		}
 
 		// Skip the first value in bytes and dur as it corresponds to the header.
-		log.Printf("Address: %s, non-header byte count: %v, non-header total time (ms): %v\n", rtc.address,
-			sum(rtc.byteCountList[1:]), sum(rtc.rttDursMS[1:]))
+		log.Printf("Address: %s, round tripts: %v, non-header byte count: %v, non-header total time (ms): %v\n",
+			rtc.address, rtc.roundTripCount, sum(rtc.byteCountList[1:]), sum(rtc.rttDursMS[1:])/1000000)
 	}
 }
 
