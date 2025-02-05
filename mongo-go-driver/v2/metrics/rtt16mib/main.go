@@ -179,7 +179,7 @@ func main() {
 
 		rtc.mu.Lock()
 		// Skip the first value in bytes and dur as it corresponds to the header.
-		log.Printf("Address: %s, round tripts: %v, non-header byte count: %v, non-header total time (ms): %v\n",
+		log.Printf("Address: %s, round trips: %v, non-header byte count: %v, non-header total time (ms): %v\n",
 			rtc.address, rtc.roundTripCount, sum(rtc.byteCountList[1:]), sum(rtc.rttDursMS[1:])/1000000)
 		rtc.mu.Unlock()
 	}
