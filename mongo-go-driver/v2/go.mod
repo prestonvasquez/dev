@@ -5,6 +5,7 @@ go 1.22.0
 toolchain go1.22.6
 
 require (
+	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe

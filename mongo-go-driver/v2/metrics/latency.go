@@ -22,9 +22,9 @@ import (
 
 // Configuration constants
 const (
-	targetLatency      = 100 * time.Millisecond // Desired latency target
+	targetLatency      = 200 * time.Millisecond // Desired latency target
 	windowDuration     = 10 * time.Second       // Time window for aggregating latency
-	runDuration        = 1 * time.Minute        // Duration to run the test
+	runDuration        = 5 * time.Minute        // Duration to run the test
 	maxWorkers         = 200                    // Maximum number of workers allowed
 	experimentTimeout  = 50 * time.Millisecond  // Timeout for experiment queries
 	initialWorkerCount = 20                     // Initial number of workers
@@ -207,15 +207,26 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 
 	connectionPendingReadDurationMu := sync.Mutex{}
 	connectionPendingReadDurations := []float64{}
-	connectionPendingCount := 0
+	connectionPendingReadSucceededCount := 0
+
+	var connectionPendingReadFailedCount atomic.Int64
+
+	connectionPendingReadFailedReasonMu := sync.Mutex{}
+	connectionPendingReadFailedReasons := map[string]struct{}{}
 
 	poolMonitor := &event.PoolMonitor{
 		Event: func(pe *event.PoolEvent) {
 			switch pe.Type {
-			case event.ConnectionPendingReadDuration:
+			case event.ConnectionPendingReadFailed:
+				connectionPendingReadFailedCount.Add(1)
+
+				connectionPendingReadFailedReasonMu.Lock()
+				connectionPendingReadFailedReasons[pe.Reason] = struct{}{}
+				connectionPendingReadFailedReasonMu.Unlock()
+			case event.ConnectionPendingReadSucceeded:
 				connectionPendingReadDurationMu.Lock()
 				connectionPendingReadDurations = append(connectionPendingReadDurations, float64(pe.Duration)/float64(time.Millisecond))
-				connectionPendingCount++
+				connectionPendingReadSucceededCount++
 				connectionPendingReadDurationMu.Unlock()
 			case event.ConnectionClosed:
 				connectionsClosed.Add(1)
@@ -272,10 +283,16 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	for {
 		select {
 		case <-ctx.Done():
+			failedReasons := []string{}
+			for reason := range connectionPendingReadFailedReasons {
+				failedReasons = append(failedReasons, reason)
+			}
+
 			log.Printf(`[Experiment] results: {
 	"connections_closed": %v,  
 	"connections_ready": %v,
-	"pending_reads": %v,
+	"succeeded_pending_reads": %v,
+	"failed_pending_reads": %v,
 	"commands_failed": %v, 
 	"commands_started": %v, 
 	"commands_succeeded": %v,
@@ -286,10 +303,12 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	"average_pending_read_dur_ms": %v,
 	"median_pending_read_dur_ms": %v,
 	"average_op_duration": %v, 
-	"median_op_duration": %v
+	"median_op_duration": %v,
+	"pending_read_failed_reasons": %v,
 }`, connectionsClosed.Load(),
 				len(connectionReadyDurations),
-				connectionPendingCount,
+				connectionPendingReadSucceededCount,
+				connectionPendingReadFailedCount.Load(),
 				commandFailed.Load(),
 				commandStarted.Load(),
 				commandSucceeded.Load(),
@@ -301,10 +320,12 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 				median(connectionPendingReadDurations),
 				average(opDurs),
 				median(opDurs),
+				failedReasons,
 			)
 			return
 		default:
 			ctx, cancel := context.WithTimeout(context.Background(), experimentTimeout)
+			ctx = context.WithValue(ctx, "latency_context", true)
 
 			query := bson.D{{Key: "field1", Value: "doesntexist"}}
 
