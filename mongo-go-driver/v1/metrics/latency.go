@@ -22,7 +22,7 @@ import (
 
 // Configuration constants
 const (
-	targetLatency      = 200 * time.Millisecond // Desired latency target
+	targetLatency      = 100 * time.Millisecond // Desired latency target
 	windowDuration     = 10 * time.Second       // Time window for aggregating latency
 	runDuration        = 5 * time.Minute        // Duration to run the test
 	maxWorkers         = 200                    // Maximum number of workers allowed
@@ -259,7 +259,9 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 		},
 	}
 
-	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri).SetPoolMonitor(poolMonitor).SetMonitor(cmdMonitor))
+	client, err := mongo.Connect(context.Background(),
+		options.Client().ApplyURI(uri).SetPoolMonitor(poolMonitor).
+			SetMonitor(cmdMonitor).SetTimeout(0))
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
 	}
