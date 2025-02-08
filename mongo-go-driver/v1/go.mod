@@ -8,9 +8,11 @@ replace go.mongodb.org/mongo-driver => /Users/preston.vasquez/Developer/mongo-go
 
 require (
 	github.com/RoaringBitmap/roaring v1.9.4
+	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
 	github.com/tmc/langchaingo v0.1.12
 	go.mongodb.org/mongo-driver v1.16.0
+	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 )
 
 //replace go.mongodb.org/mongo-driver => /Users/preston.vasquez/Developer/mongo-go-driver
