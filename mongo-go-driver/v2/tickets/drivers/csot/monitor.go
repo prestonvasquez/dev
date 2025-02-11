@@ -12,14 +12,14 @@ type monitor struct {
 	commandMonitor *event.CommandMonitor
 	poolMonitor    *event.PoolMonitor
 
-	commandStarted                 map[string][]*event.CommandStartedEvent // cmd -> event
-	commandFailed                  map[string][]*event.CommandFailedEvent
-	connectionCheckedOut           map[int64][]*event.PoolEvent
-	connectionCheckedIn            map[int64][]*event.PoolEvent
-	connectionPendingReadStarted   map[int64][]*event.PoolEvent
-	connectionPendingReadSucceeded map[int64][]*event.PoolEvent
-	connectionPendingReadFailed    map[int64][]*event.PoolEvent
-	connectionClosed               map[int64][]*event.PoolEvent // connectionID -> event
+	commandStarted       map[string][]*event.CommandStartedEvent // cmd -> event
+	commandFailed        map[string][]*event.CommandFailedEvent
+	connectionCheckedOut map[int64][]*event.PoolEvent
+	connectionCheckedIn  map[int64][]*event.PoolEvent
+	//connectionPendingReadStarted   map[int64][]*event.PoolEvent
+	//connectionPendingReadSucceeded map[int64][]*event.PoolEvent
+	//connectionPendingReadFailed    map[int64][]*event.PoolEvent
+	connectionClosed map[int64][]*event.PoolEvent // connectionID -> event
 
 	eventMu sync.Mutex
 }
@@ -93,31 +93,32 @@ func newMonitor(shouldLog bool, cmds ...string) *monitor {
 				monitor.eventMu.Lock()
 				monitor.connectionClosed[pe.ConnectionID] = append(monitor.connectionClosed[pe.ConnectionID], pe)
 				monitor.eventMu.Unlock()
-			case event.ConnectionPendingReadStarted:
-				if shouldLog {
-					log.Printf("connection awaiting pending read: %+v\n", pe)
-				}
-
-				monitor.connectionPendingReadStarted[pe.ConnectionID] = append(monitor.connectionPendingReadStarted[pe.ConnectionID], pe)
-				monitor.eventMu.Lock()
-				monitor.eventMu.Unlock()
-			case event.ConnectionPendingReadFailed:
-				if shouldLog {
-					log.Printf("connection pending read failed: %+v\n", pe)
-				}
-
-				monitor.eventMu.Lock()
-				monitor.connectionPendingReadFailed[pe.ConnectionID] = append(monitor.connectionPendingReadFailed[pe.ConnectionID], pe)
-				monitor.eventMu.Unlock()
-			case event.ConnectionPendingReadSucceeded:
-				if shouldLog {
-					log.Printf("connection pending read succeeded: %+v\n", pe)
-				}
-
-				monitor.eventMu.Lock()
-				monitor.connectionPendingReadSucceeded[pe.ConnectionID] = append(monitor.connectionPendingReadSucceeded[pe.ConnectionID], pe)
-				monitor.eventMu.Unlock()
 			}
+			//case event.ConnectionPendingReadStarted:
+			//	if shouldLog {
+			//		log.Printf("connection awaiting pending read: %+v\n", pe)
+			//	}
+
+			//	monitor.connectionPendingReadStarted[pe.ConnectionID] = append(monitor.connectionPendingReadStarted[pe.ConnectionID], pe)
+			//	monitor.eventMu.Lock()
+			//	monitor.eventMu.Unlock()
+			//case event.ConnectionPendingReadFailed:
+			//	if shouldLog {
+			//		log.Printf("connection pending read failed: %+v\n", pe)
+			//	}
+
+			//	monitor.eventMu.Lock()
+			//	monitor.connectionPendingReadFailed[pe.ConnectionID] = append(monitor.connectionPendingReadFailed[pe.ConnectionID], pe)
+			//	monitor.eventMu.Unlock()
+			//case event.ConnectionPendingReadSucceeded:
+			//	if shouldLog {
+			//		log.Printf("connection pending read succeeded: %+v\n", pe)
+			//	}
+
+			//	monitor.eventMu.Lock()
+			//	monitor.connectionPendingReadSucceeded[pe.ConnectionID] = append(monitor.connectionPendingReadSucceeded[pe.ConnectionID], pe)
+			//	monitor.eventMu.Unlock()
+			//}
 		},
 	}
 
@@ -130,8 +131,8 @@ func (m *monitor) Reset() {
 	m.connectionClosed = map[int64][]*event.PoolEvent{}
 	m.connectionCheckedIn = map[int64][]*event.PoolEvent{}
 	m.connectionCheckedOut = map[int64][]*event.PoolEvent{}
-	m.connectionPendingReadFailed = map[int64][]*event.PoolEvent{}
-	m.connectionPendingReadStarted = map[int64][]*event.PoolEvent{}
-	m.connectionPendingReadSucceeded = map[int64][]*event.PoolEvent{}
+	//m.connectionPendingReadFailed = map[int64][]*event.PoolEvent{}
+	//m.connectionPendingReadStarted = map[int64][]*event.PoolEvent{}
+	//m.connectionPendingReadSucceeded = map[int64][]*event.PoolEvent{}
 	m.eventMu = sync.Mutex{}
 }

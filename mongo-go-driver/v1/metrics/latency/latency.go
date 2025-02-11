@@ -1,9 +1,7 @@
-// MongoDB Latency Testing and Monitoring Program
-package main
+package latency
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -13,21 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/event"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/event"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/topology"
 	"golang.org/x/exp/rand"
-)
-
-// Configuration constants
-const (
-	targetLatency      = 200 * time.Millisecond // Desired latency target
-	windowDuration     = 10 * time.Second       // Time window for aggregating latency
-	runDuration        = 5 * time.Minute        // Duration to run the test
-	maxWorkers         = 200                    // Maximum number of workers allowed
-	experimentTimeout  = 50 * time.Millisecond  // Timeout for experiment queries
-	initialWorkerCount = 20                     // Initial number of workers
 )
 
 // Globals to manage worker states
@@ -37,7 +26,20 @@ var (
 	numWorkers          int32 // Atomic counter for the number of active workers
 )
 
-func main() {
+type experimentResult struct {
+	ops        int
+	timeoutOps int
+	//map[string]interface{}
+}
+
+type experimentFn func(ctx context.Context, coll *mongo.Collection) experimentResult
+
+func run(experiment experimentFn, cfgOpts ...configOpt) error {
+	cfg := newConfig()
+	for _, optFn := range cfgOpts {
+		optFn(&cfg)
+	}
+
 	// MongoDB connection URI
 	uri := os.Getenv("MONGODB_URI")
 	if uri == "" {
@@ -45,10 +47,11 @@ func main() {
 	}
 
 	// Connect to MongoDB
-	client, err := mongo.Connect(options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
 	if err != nil {
-		log.Fatalf("Failed to connect to MongoDB: %v", err)
+		return fmt.Errorf("failed to connect to MongoDB: %v", err)
 	}
+
 	defer func() {
 		if err := client.Disconnect(context.Background()); err != nil {
 			log.Fatalf("Failed to disconnect MongoDB client: %v", err)
@@ -60,31 +63,33 @@ func main() {
 	// Preload data into a collection
 	collectionName, err := preloadLargeCollection(context.Background(), 10000, client)
 	if err != nil {
-		log.Fatalf("Failed to preload collection: %v", err)
+		return fmt.Errorf("failed to preload collection: %w", err)
 	}
 	collection := db.Collection(collectionName)
 
 	// Channels for communication
-	latencyChannel := make(chan time.Duration, 1000)
-	timeoutSignal := make(chan struct{}, 1)
+	latencyCh := make(chan time.Duration, 1000)
+	startExpCh := make(chan struct{}, 1)
 
 	// Start the latency aggregator
-	go monitorLatency(latencyChannel, collection, timeoutSignal)
+	go monitorLatency(cfg, latencyCh, collection, startExpCh)
 
 	// Start the timeout experiment
 	experimentContext, cancelExperiment := context.WithCancel(context.Background())
-	go runTimeoutExperiment(experimentContext, timeoutSignal, collectionName)
+	go runExperiment(experimentContext, cfg, startExpCh, collectionName, experiment)
 
 	// Spawn initial workers
-	spawnWorkers(initialWorkerCount, collection, latencyChannel)
+	spawnWorkers(cfg, cfg.initialWorkerCount, collection, latencyCh)
 
 	// Run for the specified duration
-	time.Sleep(runDuration)
+	time.Sleep(cfg.runDuration)
 
 	// Clean up
 	terminateAllWorkers()
 	cancelExperiment()
 	time.Sleep(10 * time.Second)
+
+	return nil
 }
 
 // terminateAllWorkers stops all active workers by calling their cancel functions.
@@ -98,9 +103,9 @@ func terminateAllWorkers() {
 }
 
 // spawnWorkers starts a specified number of workers.
-func spawnWorkers(count int, collection *mongo.Collection, latencyChannel chan<- time.Duration) {
+func spawnWorkers(cfg config, count int, collection *mongo.Collection, latencyChannel chan<- time.Duration) {
 	for i := 0; i < count; i++ {
-		if atomic.LoadInt32(&numWorkers) >= maxWorkers {
+		if atomic.LoadInt32(&numWorkers) >= cfg.maxWorkers {
 			return
 		}
 
@@ -139,8 +144,13 @@ func worker(ctx context.Context, collection *mongo.Collection, latencyChannel ch
 }
 
 // monitorLatency aggregates latencies and adjusts workers dynamically based on trends.
-func monitorLatency(latencyChannel chan time.Duration, collection *mongo.Collection, timeoutSignal chan<- struct{}) {
-	ticker := time.NewTicker(windowDuration)
+func monitorLatency(
+	cfg config,
+	latencyChannel chan time.Duration,
+	collection *mongo.Collection,
+	startExp chan<- struct{},
+) {
+	ticker := time.NewTicker(cfg.windowDuration)
 	defer ticker.Stop()
 
 	var latencies []time.Duration
@@ -176,14 +186,14 @@ func monitorLatency(latencyChannel chan time.Duration, collection *mongo.Collect
 
 			log.Printf("[Monitor] Average latency: %.2f ms (%s)", averageMs, trend)
 
-			if averageMs < float64(targetLatency/time.Millisecond) {
+			if averageMs < float64(cfg.targetLatency/time.Millisecond) {
 				additionalWorkers := 5 * adjustmentWeight
 				adjustmentWeight++
 				log.Printf("[Monitor] Latency below target. Adding %d workers.", additionalWorkers)
-				spawnWorkers(additionalWorkers, collection, latencyChannel)
+				spawnWorkers(cfg, additionalWorkers, collection, latencyChannel)
 			} else {
 				log.Println("[Monitor] Latency above target. Triggering timeout queries.")
-				timeoutSignal <- struct{}{}
+				startExp <- struct{}{}
 			}
 
 			lastAverage = average
@@ -191,8 +201,7 @@ func monitorLatency(latencyChannel chan time.Duration, collection *mongo.Collect
 	}
 }
 
-// runTimeoutExperiment executes queries with a timeout to simulate stress on MongoDB.
-func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectionName string) {
+func runExperiment(ctx context.Context, cfg config, signal <-chan struct{}, collectionName string, fn experimentFn) {
 	<-signal
 
 	uri := os.Getenv("MONGODB_URI")
@@ -206,28 +215,27 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	connectionReadyDurations := []float64{}
 
 	connectionPendingReadDurationMu := sync.Mutex{}
-	connectionPendingReadDurations := []float64{}
+	connectionPendingReadFailedCount := 0
 	connectionPendingReadSucceededCount := 0
+	connectionPendingReadDurations := []float64{}
 
-	var connectionPendingReadFailedCount atomic.Int64
+	topology.BGReadCallback = func(addr string, start, read time.Time, errs []error, connClosed bool) {
+		connectionPendingReadDurationMu.Lock()
+		defer connectionPendingReadDurationMu.Unlock()
 
-	connectionPendingReadFailedReasonMu := sync.Mutex{}
-	connectionPendingReadFailedReasons := map[string]struct{}{}
+		if !connClosed {
+			connectionPendingReadSucceededCount++
+		} else {
+			connectionPendingReadFailedCount++
+		}
+
+		elapsed := time.Since(start)
+		connectionPendingReadDurations = append(connectionPendingReadDurations, float64(elapsed.Milliseconds()))
+	}
 
 	poolMonitor := &event.PoolMonitor{
 		Event: func(pe *event.PoolEvent) {
 			switch pe.Type {
-			case event.ConnectionPendingReadFailed:
-				connectionPendingReadFailedCount.Add(1)
-
-				connectionPendingReadFailedReasonMu.Lock()
-				connectionPendingReadFailedReasons[pe.Reason] = struct{}{}
-				connectionPendingReadFailedReasonMu.Unlock()
-			case event.ConnectionPendingReadSucceeded:
-				connectionPendingReadDurationMu.Lock()
-				connectionPendingReadDurations = append(connectionPendingReadDurations, float64(pe.Duration)/float64(time.Millisecond))
-				connectionPendingReadSucceededCount++
-				connectionPendingReadDurationMu.Unlock()
 			case event.ConnectionClosed:
 				connectionsClosed.Add(1)
 			case event.ConnectionReady:
@@ -260,7 +268,9 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 		},
 	}
 
-	client, err := mongo.Connect(options.Client().ApplyURI(uri).SetPoolMonitor(poolMonitor).SetMonitor(cmdMonitor))
+	client, err := mongo.Connect(context.Background(),
+		options.Client().ApplyURI(uri).SetPoolMonitor(poolMonitor).
+			SetMonitor(cmdMonitor).SetTimeout(0), cfg.clientOpts)
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
 	}
@@ -283,11 +293,6 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	for {
 		select {
 		case <-ctx.Done():
-			failedReasons := []string{}
-			for reason := range connectionPendingReadFailedReasons {
-				failedReasons = append(failedReasons, reason)
-			}
-
 			log.Printf(`[Experiment] results: {
 	"connections_closed": %v,  
 	"connections_ready": %v,
@@ -304,11 +309,10 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	"median_pending_read_dur_ms": %v,
 	"average_op_duration": %v, 
 	"median_op_duration": %v,
-	"pending_read_failed_reasons": %v,
 }`, connectionsClosed.Load(),
 				len(connectionReadyDurations),
 				connectionPendingReadSucceededCount,
-				connectionPendingReadFailedCount.Load(),
+				connectionPendingReadFailedCount,
 				commandFailed.Load(),
 				commandStarted.Load(),
 				commandSucceeded.Load(),
@@ -320,26 +324,20 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 				median(connectionPendingReadDurations),
 				average(opDurs),
 				median(opDurs),
-				failedReasons,
 			)
 			return
 		default:
-			ctx, cancel := context.WithTimeout(context.Background(), experimentTimeout)
-			ctx = context.WithValue(ctx, "latency_context", true)
-
-			query := bson.D{{Key: "field1", Value: "doesntexist"}}
+			expFnCtx, expFnCancel := context.WithTimeout(ctx, cfg.experimentTimeout)
+			expFnCtx = context.WithValue(expFnCtx, "latency_context", true)
 
 			opStart := time.Now()
-			result := coll.FindOne(ctx, query)
+			result := fn(expFnCtx, coll)
 			opDurs = append(opDurs, float64(time.Since(opStart))/float64(time.Millisecond))
 
-			if errors.Is(result.Err(), context.DeadlineExceeded) {
-				timeoutErrCount++
-			}
+			opCount += result.ops
+			timeoutErrCount += result.timeoutOps
 
-			opCount++
-
-			cancel()
+			expFnCancel()
 		}
 	}
 }

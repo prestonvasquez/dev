@@ -3,189 +3,204 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"encoding/binary"
-	"flag"
-	"fmt"
 	"log"
+	"net"
+	"os"
 	"sync"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+// We'll aim for ~16 MiB of actual data in the document.
+// The max BSON doc size is 16 MB (~16.77 MiB), so you may need to reduce if you get an error.
+const docSize = 16*1024*1024 - 100
+const dbName = "rtt16mibtest"
+const collName = "simple"
+
+type connState int
 
 const (
-	// We'll aim for ~16 MiB of actual data in the document.
-	// The max BSON doc size is 16 MB (~16.77 MiB), so you may need to reduce if you get an error.
-	DocumentSize = 16 * 1024 * 1024
+	stateIdle connState = iota
+	stateWaitingReply
 )
 
-// Flags
-var (
-	iface      = flag.String("iface", "lo", "Network interface to capture on")
-	mongoURI   = flag.String("uri", "mongodb://localhost:27017", "MongoDB URI")
-	dbName     = flag.String("db", "testdb", "Database name")
-	collName   = flag.String("coll", "testcoll", "Collection name")
-	docID      = flag.String("id", "large_doc", "Document _id to upsert/fetch")
-	portFilter = flag.Int("port", 27017, "MongoDB port (for BPF capture filter)")
-)
+type roundTripConn struct {
+	address string
+	net.Conn
+	mu             sync.Mutex
+	roundTripCount int
+	state          connState
+	byteCountList  []int
+	rttDursMS      []float64
+	debug          bool
+}
+
+func (rtc *roundTripConn) reset() {
+	rtc.mu.Lock()
+	defer rtc.mu.Unlock()
+
+	rtc.roundTripCount = 0
+	rtc.byteCountList = []int{}
+	rtc.rttDursMS = []float64{}
+}
+
+func (rtc *roundTripConn) Write(p []byte) (int, error) {
+	n, err := rtc.Conn.Write(p)
+	if err != nil {
+		return n, err
+	}
+
+	rtc.mu.Lock()
+	defer rtc.mu.Unlock()
+	if rtc.state == stateIdle && n > 0 {
+		rtc.state = stateWaitingReply
+	}
+
+	return n, nil
+}
+
+func (rtc *roundTripConn) Read(p []byte) (int, error) {
+	start := time.Now()
+	n, err := rtc.Conn.Read(p)
+	if n > 0 {
+		dur := time.Since(start)
+		rtc.mu.Lock()
+		if rtc.debug {
+			if rtc.state == stateWaitingReply {
+				rtc.roundTripCount++
+				rtc.byteCountList = append(rtc.byteCountList, n)
+				rtc.rttDursMS = append(rtc.rttDursMS, float64(dur.Nanoseconds()))
+			}
+		}
+		rtc.mu.Unlock()
+	}
+
+	return n, err
+}
+
+type debugDialer struct {
+	conns []*roundTripConn
+}
+
+var _ options.ContextDialer = &debugDialer{}
+
+func (d *debugDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	c, err := net.DialTimeout(network, address, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	rtc := &roundTripConn{Conn: c, state: stateIdle, address: address}
+	d.conns = append(d.conns, rtc)
+
+	return rtc, nil
+}
+
+func (d *debugDialer) resetRtcs() {
+	for _, rtc := range d.conns {
+		rtc.reset()
+	}
+}
+
+func (d *debugDialer) debugOn() {
+	for _, rtc := range d.conns {
+		rtc.mu.Lock()
+		rtc.debug = true
+		rtc.mu.Unlock()
+	}
+}
+
+func (d *debugDialer) debugOff() {
+	for _, rtc := range d.conns {
+		rtc.mu.Lock()
+		rtc.debug = false
+		rtc.mu.Unlock()
+	}
+}
 
 func main() {
-	flag.Parse()
+	customerDialer := &debugDialer{}
+	clientOpts := options.Client().
+		ApplyURI(os.Getenv("MONGODB_URI")).
+		SetDialer(customerDialer).
+		SetMaxPoolSize(1)
 
-	// 1. Connect to MongoDB
-	clientOpts := options.Client().ApplyURI(*mongoURI)
-	client, err := mongo.Connect(context.Background(), clientOpts)
+	client, err := mongo.Connect(clientOpts)
 	if err != nil {
-		log.Fatalf("Failed to connect to MongoDB: %v", err)
+		log.Fatalf("failed to connect: %v", err)
 	}
+
 	defer func() {
-		_ = client.Disconnect(context.Background())
-	}()
-
-	// 2. Upsert a large document (~16 MiB)
-	coll := client.Database(*dbName).Collection(*collName)
-
-	bigData := make([]byte, DocumentSize)
-	_, _ = rand.Read(bigData) // fill with random bytes, or just leave zeroed
-	doc := bson.M{
-		"_id":  *docID,
-		"data": bigData,
-	}
-	upsert := true
-	_, err = coll.ReplaceOne(
-		context.Background(),
-		bson.M{"_id": *docID},
-		doc,
-		&options.ReplaceOptions{Upsert: &upsert},
-	)
-	if err != nil {
-		log.Fatalf("Failed to upsert large doc: %v", err)
-	}
-
-	// 3. Start a packet capture on the given interface
-	// NOTE: you generally need root or CAP_NET_RAW privileges to do this.
-	handle, err := pcap.OpenLive(*iface, 65535, false, pcap.BlockForever)
-	if err != nil {
-		log.Fatalf("pcap OpenLive failed: %v", err)
-	}
-	defer handle.Close()
-
-	// Set a BPF filter to see only traffic on the MongoDB port
-	filter := fmt.Sprintf("tcp and port %d", *portFilter)
-	if err := handle.SetBPFFilter(filter); err != nil {
-		log.Fatalf("Failed to set BPF filter: %v", err)
-	}
-	log.Printf("Capturing on interface %q with filter %q\n", *iface, filter)
-
-	// We'll parse the server->client traffic to count:
-	// - how many reply messages (wire-protocol)
-	// - total "body" bytes (excluding the 16-byte header).
-	var (
-		captureWg      sync.WaitGroup
-		totalBodyBytes int64
-		totalReplies   int64
-		mu             sync.Mutex
-	)
-
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	captureWg.Add(1)
-
-	// A buffer to do naive reassembly of server->client data
-	// keyed by 4-tuple (srcIP, srcPort, dstIP, dstPort) if you want multiple connections.
-	// But for simplicity, assume we only have one direct connection to local Mongo.
-	var serverToClientBuffer []byte
-
-	go func() {
-		defer captureWg.Done()
-		for packet := range packetSource.Packets() {
-			// We only care about TCP layer
-			tcpLayer := packet.Layer(layers.LayerTypeTCP)
-			if tcpLayer == nil {
-				continue
-			}
-			tcp, _ := tcpLayer.(*layers.TCP)
-			if tcp == nil {
-				continue
-			}
-
-			// If the packet is from server->client, i.e. source port = 27017 by default
-			// (or the user-specified port).
-			if int(tcp.SrcPort) == *portFilter {
-				// Append payload to our buffer
-				mu.Lock()
-				serverToClientBuffer = append(serverToClientBuffer, tcp.Payload...)
-				// Try to parse complete wire-protocol messages in a loop
-				for {
-					if len(serverToClientBuffer) < 4 {
-						// Not enough to read length
-						break
-					}
-					// The first 4 bytes = total message length (int32, little-endian).
-					msgLen := int32(binary.LittleEndian.Uint32(serverToClientBuffer[:4]))
-					if msgLen < 16 {
-						// Invalid or incomplete
-						break
-					}
-					if len(serverToClientBuffer) < int(msgLen) {
-						// We don't have the full message yet
-						break
-					}
-					// We have a complete wire-protocol message of length msgLen
-					// Skip the 16-byte header. The body is (msgLen - 16).
-					bodySize := int64(msgLen - 16)
-					totalBodyBytes += bodySize
-					totalReplies++
-
-					// Remove this message from the buffer
-					serverToClientBuffer = serverToClientBuffer[msgLen:]
-				}
-				mu.Unlock()
-			}
+		if err := client.Disconnect(context.Background()); err != nil {
+			log.Fatalf("failed to disconnect: %v", err)
 		}
 	}()
 
-	// 4. Perform the Find to fetch the large doc. We'll measure how long it takes.
-	start := time.Now()
-	var result bson.M
-	err = coll.FindOne(context.Background(), bson.M{"_id": *docID}).Decode(&result)
-	if err != nil {
-		log.Fatalf("FindOne error: %v", err)
+	log.Println("established client")
+
+	// Make sure the connection is established (handshake, etc.).
+	if err := client.Ping(context.Background(), nil); err != nil {
+		log.Fatalf("ping error: %v", err)
 	}
-	elapsed := time.Since(start)
 
-	// 5. We're done reading. Give a short grace period for final packets (e.g. ACK/FIN).
-	time.Sleep(500 * time.Millisecond)
+	log.Println("finished ping")
 
-	// Stop the packet source by closing the handle (which will cause the packet loop to end).
-	handle.Close()
-	captureWg.Wait()
+	coll := client.Database(dbName).Collection(collName)
+	_ = coll.Drop(context.Background())
 
-	// 6. Print the final stats
-	sec := elapsed.Seconds()
-	mbps := float64(DocumentSize) / (1024.0 * 1024.0) / sec
+	buf := make([]byte, docSize)
+	_, _ = rand.Read(buf)
 
-	mu.Lock()
-	bodyBytes := totalBodyBytes
-	replies := totalReplies
-	mu.Unlock()
-
-	fmt.Printf("\n--- Mongo Fetch Stats ---\n")
-	fmt.Printf("Fetched ~%d bytes of document data (application-level) in %.3f seconds\n", DocumentSize, sec)
-	fmt.Printf("Effective throughput (doc-size based): %.2f MiB/s\n", mbps)
-
-	fmt.Printf("\n--- Wire Protocol Capture ---\n")
-	fmt.Printf("Total wire-protocol replies: %d\n", replies)
-	fmt.Printf("Sum of message bodies (excluding 16-byte header): %d bytes\n", bodyBytes)
-	if sec > 0 {
-		wireMbps := float64(bodyBytes) / (1024.0 * 1024.0) / sec
-		fmt.Printf("Throughput (body-bytes only): %.2f MiB/s\n", wireMbps)
-	} else {
-		fmt.Printf("Throughput (body-bytes only): (instant?)\n")
+	doc := bson.D{{Key: "data", Value: buf}}
+	if _, err := coll.InsertOne(context.Background(), doc); err != nil {
+		log.Fatalf("failed to insert doc: %v", err)
 	}
+
+	log.Println("inserted doc")
+
+	customerDialer.debugOn()
+
+	res := coll.FindOne(context.Background(), bson.D{})
+	if err := res.Err(); err != nil {
+		log.Fatalf("failed to find one: %v", err)
+	}
+
+	customerDialer.debugOff()
+
+	log.Println("found one")
+
+	for _, rtc := range customerDialer.conns {
+		if len(rtc.byteCountList) == 0 {
+			continue
+		}
+
+		rtc.mu.Lock()
+		// Skip the first value in bytes and dur as it corresponds to the header.
+		log.Printf("Address: %s, recv cycles: %v, non-header byte count: %v, non-header total time (ms): %v\n",
+			rtc.address, rtc.roundTripCount, sum(rtc.byteCountList[1:]), sum(rtc.rttDursMS[1:])/1000000)
+		rtc.mu.Unlock()
+	}
+}
+
+// average calculates the mean of a slice of float64 numbers.
+func average(data []float64) float64 {
+	if len(data) == 0 {
+		return 0 // Handle empty slice to avoid division by zero
+	}
+	sum := 0.0
+	for _, value := range data {
+		sum += value
+	}
+	return sum / float64(len(data))
+}
+
+func sum[T int | float64](data []T) T {
+	var s T
+	for _, n := range data {
+		s += n
+	}
+	return s
 }

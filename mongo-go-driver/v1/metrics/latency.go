@@ -1,4 +1,3 @@
-// MongoDB Latency Testing and Monitoring Program
 package main
 
 import (
@@ -13,16 +12,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/event"
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/event"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/mongo/driver/topology"
 	"golang.org/x/exp/rand"
 )
 
 // Configuration constants
 const (
-	targetLatency      = 200 * time.Millisecond // Desired latency target
+	targetLatency      = 100 * time.Millisecond // Desired latency target
 	windowDuration     = 10 * time.Second       // Time window for aggregating latency
 	runDuration        = 5 * time.Minute        // Duration to run the test
 	maxWorkers         = 200                    // Maximum number of workers allowed
@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Connect to MongoDB
-	client, err := mongo.Connect(options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(uri))
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
@@ -206,28 +206,27 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	connectionReadyDurations := []float64{}
 
 	connectionPendingReadDurationMu := sync.Mutex{}
-	connectionPendingReadDurations := []float64{}
+	connectionPendingReadFailedCount := 0
 	connectionPendingReadSucceededCount := 0
+	connectionPendingReadDurations := []float64{}
 
-	var connectionPendingReadFailedCount atomic.Int64
+	topology.BGReadCallback = func(addr string, start, read time.Time, errs []error, connClosed bool) {
+		connectionPendingReadDurationMu.Lock()
+		defer connectionPendingReadDurationMu.Unlock()
 
-	connectionPendingReadFailedReasonMu := sync.Mutex{}
-	connectionPendingReadFailedReasons := map[string]struct{}{}
+		if !connClosed {
+			connectionPendingReadSucceededCount++
+		} else {
+			connectionPendingReadFailedCount++
+		}
+
+		elapsed := time.Since(start)
+		connectionPendingReadDurations = append(connectionPendingReadDurations, float64(elapsed.Milliseconds()))
+	}
 
 	poolMonitor := &event.PoolMonitor{
 		Event: func(pe *event.PoolEvent) {
 			switch pe.Type {
-			case event.ConnectionPendingReadFailed:
-				connectionPendingReadFailedCount.Add(1)
-
-				connectionPendingReadFailedReasonMu.Lock()
-				connectionPendingReadFailedReasons[pe.Reason] = struct{}{}
-				connectionPendingReadFailedReasonMu.Unlock()
-			case event.ConnectionPendingReadSucceeded:
-				connectionPendingReadDurationMu.Lock()
-				connectionPendingReadDurations = append(connectionPendingReadDurations, float64(pe.Duration)/float64(time.Millisecond))
-				connectionPendingReadSucceededCount++
-				connectionPendingReadDurationMu.Unlock()
 			case event.ConnectionClosed:
 				connectionsClosed.Add(1)
 			case event.ConnectionReady:
@@ -260,7 +259,9 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 		},
 	}
 
-	client, err := mongo.Connect(options.Client().ApplyURI(uri).SetPoolMonitor(poolMonitor).SetMonitor(cmdMonitor))
+	client, err := mongo.Connect(context.Background(),
+		options.Client().ApplyURI(uri).SetPoolMonitor(poolMonitor).
+			SetMonitor(cmdMonitor).SetTimeout(0))
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
 	}
@@ -283,11 +284,6 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	for {
 		select {
 		case <-ctx.Done():
-			failedReasons := []string{}
-			for reason := range connectionPendingReadFailedReasons {
-				failedReasons = append(failedReasons, reason)
-			}
-
 			log.Printf(`[Experiment] results: {
 	"connections_closed": %v,  
 	"connections_ready": %v,
@@ -304,11 +300,10 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 	"median_pending_read_dur_ms": %v,
 	"average_op_duration": %v, 
 	"median_op_duration": %v,
-	"pending_read_failed_reasons": %v,
 }`, connectionsClosed.Load(),
 				len(connectionReadyDurations),
 				connectionPendingReadSucceededCount,
-				connectionPendingReadFailedCount.Load(),
+				connectionPendingReadFailedCount,
 				commandFailed.Load(),
 				commandStarted.Load(),
 				commandSucceeded.Load(),
@@ -320,7 +315,6 @@ func runTimeoutExperiment(ctx context.Context, signal <-chan struct{}, collectio
 				median(connectionPendingReadDurations),
 				average(opDurs),
 				median(opDurs),
-				failedReasons,
 			)
 			return
 		default:
