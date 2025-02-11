@@ -31,12 +31,13 @@ func main() {
 	// Specify the database and collection
 	db := client.Database("exampleDB")
 	collection := db.Collection("exampleCappedCollection")
+	collection.Drop(context.Background())
 
-	// Ensure the collection is capped (tailable cursors only work on capped collections)
-	//err = setupCappedCollection(ctx, collection)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
+	if err := setupCappedCollection(context.Background(), collection); err != nil {
+		panic(err)
+	}
+
+	collection.InsertOne(context.Background(), bson.D{{"x", 1}})
 
 	// Configure the tailable cursor
 	findOptions := options.Find()
@@ -44,23 +45,55 @@ func main() {
 	findOptions.SetBatchSize(1)
 	findOptions.SetMaxAwaitTime(500 * time.Millisecond)
 
+	findCtx, findCancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer findCancel()
+
 	// Start watching for changes in the capped collection
-	cursor, err := collection.Find(context.Background(), bson.M{}, findOptions)
+	cursor, err := collection.Find(findCtx, bson.M{}, findOptions)
 	if err != nil {
 		log.Fatal("Error creating tailable cursor:", err)
 	}
 	defer cursor.Close(ctx)
 
-	ctx, cancel = context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
+	//ctx, cancel = context.WithTimeout(context.Background(), 500*time.Millisecond)
+	//defer cancel()
 
-	ctx = context.WithValue(ctx, "latency_context", true)
-
-	st := time.Now()
-	var docs []bson.Raw
-	if err := cursor.All(ctx, &docs); err != nil {
-		log.Fatalf("cursor failed: %v", err)
+	//ctx = context.WithValue(ctx, "latency_context", true)
+	for cursor.Next(context.Background()) {
+		fmt.Println(cursor.Current)
 	}
 
-	fmt.Println("elapsed: ", time.Since(st))
+	//st := time.Now()
+	//var docs []bson.Raw
+	//if err := cursor.All(context.Background(), &docs); err != nil {
+	//	log.Fatalf("cursor failed: %v", err)
+	//}
+
+	//fmt.Println("elapsed: ", time.Since(st))
+}
+
+// Helper function to set up a capped collection (if not already existing)
+func setupCappedCollection(ctx context.Context, collection *mongo.Collection) error {
+	db := collection.Database()
+	collectionName := collection.Name()
+
+	// Check if the collection exists
+	collections, err := db.ListCollectionNames(ctx, bson.M{"name": collectionName})
+	if err != nil {
+		return err
+	}
+
+	if len(collections) == 0 {
+		// Collection does not exist, create it as a capped collection
+		cappedOpts := options.CreateCollection().SetCapped(true).SetSizeInBytes(1024 * 1024) // 1 MB size
+		err = db.CreateCollection(ctx, collectionName, cappedOpts)
+		if err != nil {
+			return err
+		}
+		log.Println("Capped collection created:", collectionName)
+	} else {
+		log.Println("Capped collection already exists:", collectionName)
+	}
+
+	return nil
 }
