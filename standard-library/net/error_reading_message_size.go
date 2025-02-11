@@ -47,16 +47,13 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Try to read a 4-byte message length
-	var msgSize uint32
-	err = binary.Read(conn, binary.BigEndian, &msgSize)
+	// Use ReadFull to ensure we get all 4 bytes or fail
+	buf := make([]byte, 4)
+	n, err := io.ReadFull(conn, buf)
 	if err != nil {
-		if err == io.EOF {
-			fmt.Println("Read error: connection closed before full message size was received (EOF)")
-		} else {
-			fmt.Println("Read error:", err)
-		}
+		fmt.Printf("Read error: only %d bytes read: %v\n", n, err)
 	} else {
+		msgSize := binary.BigEndian.Uint32(buf)
 		fmt.Println("Message size received:", msgSize)
 	}
 }
