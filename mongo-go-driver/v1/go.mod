@@ -4,7 +4,7 @@ go 1.22.0
 
 toolchain go1.22.6
 
-replace go.mongodb.org/mongo-driver => /Users/preston.vasquez/Developer/mongo-go-driver-2
+replace go.mongodb.org/mongo-driver => /Users/preston.vasquez/Developer/mongo-go-driver
 
 require (
 	github.com/RoaringBitmap/roaring v1.9.4

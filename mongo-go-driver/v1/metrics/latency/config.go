@@ -65,7 +65,7 @@ func newConfig(opts ...configOpt) config {
 		targetLatency:      100 * time.Millisecond,
 		windowDuration:     10 * time.Second,
 		runDuration:        1 * time.Minute,
-		maxWorkers:         200,
+		maxWorkers:         2000,
 		experimentTimeout:  50 * time.Millisecond,
 		initialWorkerCount: 20,
 	}

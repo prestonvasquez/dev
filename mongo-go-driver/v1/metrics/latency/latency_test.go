@@ -32,6 +32,42 @@ func TestLatency(t *testing.T) {
 		require.NoError(t, err, "failed to run experiment")
 	})
 
+	t.Run("single-threaded find", func(t *testing.T) {
+		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
+			query := bson.D{{Key: "field1", Value: "doesntexist"}}
+			_, err := coll.Find(ctx, query)
+
+			timeoutOps := 0
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				timeoutOps++
+			}
+
+			return experimentResult{
+				ops:        1,
+				timeoutOps: timeoutOps,
+			}
+		})
+		require.NoError(t, err, "failed to run experiment")
+	})
+
+	t.Run("single-threaded find with targetLatency=1s", func(t *testing.T) {
+		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
+			query := bson.D{{Key: "field1", Value: "doesntexist"}}
+			_, err := coll.Find(ctx, query)
+
+			timeoutOps := 0
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				timeoutOps++
+			}
+
+			return experimentResult{
+				ops:        1,
+				timeoutOps: timeoutOps,
+			}
+		})
+		require.NoError(t, err, "failed to run experiment")
+	})
+
 	t.Run("multi-threaded findOne", func(t *testing.T) {
 		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
 			opsToAttempt := 100
@@ -75,7 +111,6 @@ func TestLatency(t *testing.T) {
 
 	t.Run("multi-threaded findOne with maxPoolSize=1", func(t *testing.T) {
 		clientOpts := options.Client().SetMaxPoolSize(1)
-
 		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
 			opsToAttempt := 100
 
