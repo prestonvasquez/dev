@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -19,7 +20,9 @@ import (
 	"golang.org/x/exp/rand"
 )
 
-type experimentResult struct{}
+type experimentResult struct {
+	opCount int32
+}
 
 type experimentFn func(ctx context.Context, coll *mongo.Collection) (experimentResult, error)
 
@@ -58,7 +61,7 @@ func BenchmarkSessionPooling(b *testing.B) {
 			fn:   singleThreadedFindOne,
 		},
 		{
-			name: "multie-threaded findOne",
+			name: "concurrent findOne",
 			fn:   multiThreadedFindOne,
 		},
 	}
@@ -71,9 +74,13 @@ func BenchmarkSessionPooling(b *testing.B) {
 				b.ResetTimer()
 				b.ReportAllocs()
 
+				var opCount int32
+
 				for i := 0; i < b.N; i++ {
-					_, err := tt.fn(context.Background(), coll)
+					res, err := tt.fn(context.Background(), coll)
 					require.NoError(b, err)
+
+					opCount += res.opCount
 				}
 
 				var uniqueSessionIDsLen int
@@ -86,6 +93,7 @@ func BenchmarkSessionPooling(b *testing.B) {
 				})
 
 				b.ReportMetric(float64(uniqueSessionIDsLen), "sessions")
+				b.ReportMetric(float64(opCount), "concurrent_ops")
 			})
 		}
 	}
@@ -106,6 +114,8 @@ func singleThreadedFindOne(ctx context.Context, coll *mongo.Collection) (experim
 func multiThreadedFindOne(ctx context.Context, coll *mongo.Collection) (experimentResult, error) {
 	opsToAttempt := 100
 
+	var opCount atomic.Int32
+
 	wg := sync.WaitGroup{}
 	wg.Add(opsToAttempt)
 
@@ -121,12 +131,16 @@ func multiThreadedFindOne(ctx context.Context, coll *mongo.Collection) (experime
 
 			query := bson.D{{Key: "field1", Value: "doesntexist"}}
 			coll.FindOne(ctx, query)
+
+			opCount.Add(1)
 		}()
 	}
 
 	wg.Wait()
 
-	return experimentResult{}, nil
+	return experimentResult{
+		opCount: opCount.Load(),
+	}, nil
 }
 
 // preloadLargeCollection populates a MongoDB collection with random data.
