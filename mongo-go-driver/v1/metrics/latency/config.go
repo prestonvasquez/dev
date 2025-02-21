@@ -62,7 +62,7 @@ func withClientOptions(opts *options.ClientOptions) configOpt {
 
 func newConfig(opts ...configOpt) config {
 	cfg := config{
-		targetLatency:      100 * time.Millisecond,
+		targetLatency:      1 * time.Millisecond,
 		windowDuration:     10 * time.Second,
 		runDuration:        1 * time.Minute,
 		maxWorkers:         2000,
