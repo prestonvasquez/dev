@@ -3,6 +3,8 @@ package disablesessions
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,7 +20,7 @@ func TestDisablingSessions(t *testing.T) {
 	const runDuration = 5 * time.Minute
 
 	err := metrics.RunExp(func(ctx context.Context, coll *mongo.Collection) metrics.ExpResult {
-		session.DisableSessionPooling = true
+		session.DisableSessionPooling = false
 		query := bson.D{{Key: "field1", Value: "doesntexist"}}
 		result := coll.FindOne(ctx, query)
 
@@ -38,6 +40,61 @@ func TestDisablingSessions(t *testing.T) {
 		return metrics.ExpResult{
 			OpCount:        1,
 			TimeoutOpCount: timeoutOps,
+			SessionIDSet:   sessionIDSet,
+		}
+	}, metrics.WithRunDuration(runDuration))
+
+	require.NoError(t, err)
+}
+
+func TestDisablingSessionsMulti(t *testing.T) {
+	const runDuration = 5 * time.Minute
+
+	err := metrics.RunExp(func(ctx context.Context, coll *mongo.Collection) metrics.ExpResult {
+		session.DisableSessionPooling = true
+
+		opsToAttempt := 10000
+
+		var timeoutOps atomic.Int32
+		var ops atomic.Int32
+
+		wg := sync.WaitGroup{}
+		wg.Add(opsToAttempt)
+
+		for i := 0; i < opsToAttempt; i++ {
+			go func() {
+				defer wg.Done()
+
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				query := bson.D{}
+				result := coll.FindOne(ctx, query)
+
+				if err := result.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
+					timeoutOps.Add(1)
+				}
+
+				ops.Add(1)
+			}()
+		}
+
+		wg.Wait()
+
+		sessionIDSet := make(map[string]bool)
+		driver.UniqueSessionIDs.Range(func(key, _ any) bool {
+			sessionIDSet[key.(string)] = true
+			driver.UniqueSessionIDs.Delete(key)
+
+			return true
+		})
+
+		return metrics.ExpResult{
+			OpCount:        int(ops.Load()),
+			TimeoutOpCount: int(timeoutOps.Load()),
 			SessionIDSet:   sessionIDSet,
 		}
 	}, metrics.WithRunDuration(runDuration))

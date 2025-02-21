@@ -145,6 +145,26 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 				key   string
 				value interface{}
 			}
+
+			setup := []resultEntry{
+				{"target_latency", cfg.targetLatency},
+				{"window_duration", cfg.windowDuration},
+				{"initial_worker_count", cfg.initialWorkerCount},
+				{"run_duration", cfg.runDuration},
+				{"max_workers", cfg.maxWorkers},
+			}
+			if cfg.experimentTimeout != nil {
+				setup = append(setup, resultEntry{"experiment_timeout", *cfg.experimentTimeout})
+			}
+			if cfg.experimentClientOpts != nil {
+				setup = append(setup, resultEntry{"experiment_client_options", cfg.experimentClientOpts})
+			}
+			setup = append(setup, resultEntry{"preload_collection_size", cfg.preloadCollectionSize})
+			log.Println("[Experiment] config:")
+			for _, entry := range setup {
+				log.Printf("  %s: %v", entry.key, entry.value)
+			}
+
 			results := []resultEntry{
 				{"connections_closed", poolMonitor.ConnClosed.Load()},
 				{"connections_closed_errors", poolMonitor.ConnClosedErrors},
