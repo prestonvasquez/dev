@@ -49,11 +49,12 @@ func TestDisablingSessions(t *testing.T) {
 
 func TestDisablingSessionsMulti(t *testing.T) {
 	const runDuration = 5 * time.Minute
+	const preloadLargeCollection = 10_000
 
 	err := metrics.RunExp(func(ctx context.Context, coll *mongo.Collection) metrics.ExpResult {
 		session.DisableSessionPooling = true
 
-		opsToAttempt := 10000
+		opsToAttempt := 10_000
 
 		var timeoutOps atomic.Int32
 		var ops atomic.Int32
@@ -71,7 +72,9 @@ func TestDisablingSessionsMulti(t *testing.T) {
 				default:
 				}
 
-				query := bson.D{}
+				//query := bson.D{}
+
+				query := bson.D{{Key: "field1", Value: "doesntexist"}}
 				result := coll.FindOne(ctx, query)
 
 				if err := result.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
@@ -97,7 +100,9 @@ func TestDisablingSessionsMulti(t *testing.T) {
 			TimeoutOpCount: int(timeoutOps.Load()),
 			SessionIDSet:   sessionIDSet,
 		}
-	}, metrics.WithRunDuration(runDuration))
+	},
+		metrics.WithRunDuration(runDuration),
+		metrics.WithPreloadCollectionSize(preloadLargeCollection))
 
 	require.NoError(t, err)
 }
