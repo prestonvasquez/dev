@@ -28,6 +28,7 @@ type ExpResult struct {
 	OpCount        int
 	TimeoutOpCount int
 	SessionIDSet   map[string]bool
+	Errors         map[error]int
 }
 
 type ExpFunc func(ctx context.Context, coll *mongo.Collection) ExpResult
@@ -138,6 +139,8 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 	sessionIDSet := make(map[string]bool)
 	var opDurs []float64
 
+	errSet := make(map[error]int)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -153,13 +156,17 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 				{"run_duration", cfg.runDuration},
 				{"max_workers", cfg.maxWorkers},
 			}
+
 			if cfg.experimentTimeout != nil {
 				setup = append(setup, resultEntry{"experiment_timeout", *cfg.experimentTimeout})
 			}
+
 			if cfg.experimentClientOpts != nil {
 				setup = append(setup, resultEntry{"experiment_client_options", cfg.experimentClientOpts})
 			}
+
 			setup = append(setup, resultEntry{"preload_collection_size", cfg.preloadCollectionSize})
+
 			log.Println("[Experiment] config:")
 			for _, entry := range setup {
 				log.Printf("  %s: %v", entry.key, entry.value)
@@ -182,6 +189,7 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 				{"average_op_duration", average(opDurs)},
 				{"median_op_duration", median(opDurs)},
 				{"sessions", len(sessionIDSet)},
+				{"errors", errSet},
 			}
 			log.Println("[Experiment] results:")
 			for _, entry := range results {
@@ -205,6 +213,10 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 				for sessionID := range result.SessionIDSet {
 					sessionIDSet[sessionID] = true
 				}
+			}
+
+			for err, inc := range result.Errors {
+				errSet[err] += inc
 			}
 
 			expFnCancel()

@@ -75,6 +75,9 @@ func TestLatency(t *testing.T) {
 			var timeoutOps atomic.Int32
 			var ops atomic.Int32
 
+			var errs []error
+			errMu := sync.Mutex{}
+
 			wg := sync.WaitGroup{}
 			wg.Add(opsToAttempt)
 
@@ -91,8 +94,15 @@ func TestLatency(t *testing.T) {
 					query := bson.D{{Key: "field1", Value: "doesntexist"}}
 					result := coll.FindOne(ctx, query)
 
-					if err := result.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
+					err := result.Err()
+					if err != nil && errors.Is(err, context.DeadlineExceeded) {
 						timeoutOps.Add(1)
+					}
+
+					if err != nil {
+						errMu.Lock()
+						errs = append(errs, err)
+						errMu.Unlock()
 					}
 
 					ops.Add(1)
