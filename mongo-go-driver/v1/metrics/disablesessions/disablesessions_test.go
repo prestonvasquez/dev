@@ -85,9 +85,9 @@ func TestDisablingSessionsMulti(t *testing.T) {
 
 				if metrics.ErrorIsTooManyLogicalSessions(err) {
 					tooManyLogicalSessionsOp.Add(1)
+				} else {
+					ops.Add(1)
 				}
-
-				ops.Add(1)
 			}()
 		}
 
