@@ -3,6 +3,7 @@ package disablesessions
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -86,9 +87,13 @@ func TestDisablingSessionsMulti(t *testing.T) {
 				}
 
 				if err != nil {
-					errSetMu.Lock()
-					errSet[err.Error()]++
-					errSetMu.Unlock()
+					srvErr, ok := err.(mongo.ServerError)
+					if ok {
+						errSetMu.Lock()
+						//errSet[err.Error()]++
+						fmt.Println(srvErr.HasErrorLabel("TooManyLogicalSessions"), srvErr)
+						errSetMu.Unlock()
+					}
 				}
 
 				ops.Add(1)
@@ -102,7 +107,7 @@ func TestDisablingSessionsMulti(t *testing.T) {
 			sessionIDSet[key.(string)] = true
 			driver.UniqueSessionIDs.Delete(key)
 
-			return true
+			return tru
 		})
 
 		return metrics.ExpResult{

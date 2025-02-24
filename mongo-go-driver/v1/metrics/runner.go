@@ -189,6 +189,7 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 				{"average_op_duration", average(opDurs)},
 				{"median_op_duration", median(opDurs)},
 				{"sessions", len(sessionIDSet)},
+				{"unique_errors", len(errSet)},
 				{"errors", errSet},
 			}
 			log.Println("[Experiment] results:")
