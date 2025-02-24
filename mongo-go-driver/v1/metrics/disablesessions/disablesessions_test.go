@@ -60,9 +60,6 @@ func TestDisablingSessionsMulti(t *testing.T) {
 		var tooManyLogicalSessionsOp atomic.Int32
 		var ops atomic.Int32
 
-		errSet := make(map[string]int)
-		errSetMu := sync.Mutex{}
-
 		wg := sync.WaitGroup{}
 		wg.Add(opsToAttempt)
 
