@@ -3,7 +3,6 @@ package disablesessions
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -58,6 +57,7 @@ func TestDisablingSessionsMulti(t *testing.T) {
 		opsToAttempt := 10_000
 
 		var timeoutOps atomic.Int32
+		var tooManyLogicalSessionsOp atomic.Int32
 		var ops atomic.Int32
 
 		errSet := make(map[string]int)
@@ -86,14 +86,8 @@ func TestDisablingSessionsMulti(t *testing.T) {
 					timeoutOps.Add(1)
 				}
 
-				if err != nil {
-					srvErr, ok := err.(mongo.ServerError)
-					if ok {
-						errSetMu.Lock()
-						//errSet[err.Error()]++
-						fmt.Println(srvErr.HasErrorCode(261), srvErr)
-						errSetMu.Unlock()
-					}
+				if metrics.ErrorIsTooManyLogicalSessions(err) {
+					tooManyLogicalSessionsOp.Add(1)
 				}
 
 				ops.Add(1)
@@ -111,10 +105,10 @@ func TestDisablingSessionsMulti(t *testing.T) {
 		})
 
 		return metrics.ExpResult{
-			OpCount:        int(ops.Load()),
-			TimeoutOpCount: int(timeoutOps.Load()),
-			SessionIDSet:   sessionIDSet,
-			Errors:         errSet,
+			OpCount:                       int(ops.Load()),
+			TimeoutOpCount:                int(timeoutOps.Load()),
+			TooManyLogicalSessionsOpCount: int(tooManyLogicalSessionsOp.Load()),
+			SessionIDSet:                  sessionIDSet,
 		}
 	},
 		metrics.WithRunDuration(runDuration),
