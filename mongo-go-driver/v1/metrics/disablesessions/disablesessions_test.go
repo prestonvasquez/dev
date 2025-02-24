@@ -48,8 +48,8 @@ func TestDisablingSessions(t *testing.T) {
 }
 
 func TestDisablingSessionsMulti(t *testing.T) {
-	const runDuration = 5 * time.Minute
-	const preloadLargeCollection = 10_000
+	const runDuration = 1 * time.Minute
+	const preloadLargeCollection = 100
 
 	err := metrics.RunExp(func(ctx context.Context, coll *mongo.Collection) metrics.ExpResult {
 		session.DisableSessionPooling = true
@@ -85,9 +85,9 @@ func TestDisablingSessionsMulti(t *testing.T) {
 
 				if metrics.ErrorIsTooManyLogicalSessions(err) {
 					tooManyLogicalSessionsOp.Add(1)
-				} else {
-					ops.Add(1)
 				}
+
+				ops.Add(1)
 			}()
 		}
 
