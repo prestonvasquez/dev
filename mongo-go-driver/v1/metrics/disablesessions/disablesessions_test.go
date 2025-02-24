@@ -59,7 +59,7 @@ func TestDisablingSessionsMulti(t *testing.T) {
 		var timeoutOps atomic.Int32
 		var ops atomic.Int32
 
-		errSet := make(map[error]int)
+		errSet := make(map[string]int)
 		errSetMu := sync.Mutex{}
 
 		wg := sync.WaitGroup{}
@@ -87,7 +87,7 @@ func TestDisablingSessionsMulti(t *testing.T) {
 
 				if err != nil {
 					errSetMu.Lock()
-					errSet[err]++
+					errSet[err.Error()]++
 					errSetMu.Unlock()
 				}
 

@@ -28,7 +28,7 @@ type ExpResult struct {
 	OpCount        int
 	TimeoutOpCount int
 	SessionIDSet   map[string]bool
-	Errors         map[error]int
+	Errors         map[string]int
 }
 
 type ExpFunc func(ctx context.Context, coll *mongo.Collection) ExpResult
@@ -139,7 +139,7 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 	sessionIDSet := make(map[string]bool)
 	var opDurs []float64
 
-	errSet := make(map[error]int)
+	errSet := make(map[string]int)
 
 	for {
 		select {
