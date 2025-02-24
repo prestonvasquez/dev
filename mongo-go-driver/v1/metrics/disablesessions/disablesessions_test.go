@@ -91,7 +91,7 @@ func TestDisablingSessionsMulti(t *testing.T) {
 					if ok {
 						errSetMu.Lock()
 						//errSet[err.Error()]++
-						fmt.Println(srvErr.HasErrorLabel("TooManyLogicalSessions"), srvErr)
+						fmt.Println(srvErr.HasErrorCode(261), srvErr)
 						errSetMu.Unlock()
 					}
 				}
@@ -107,7 +107,7 @@ func TestDisablingSessionsMulti(t *testing.T) {
 			sessionIDSet[key.(string)] = true
 			driver.UniqueSessionIDs.Delete(key)
 
-			return tru
+			return true
 		})
 
 		return metrics.ExpResult{
