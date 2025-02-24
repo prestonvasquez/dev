@@ -140,8 +140,6 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 	sessionIDSet := make(map[string]bool)
 	var opDurs []float64
 
-	errSet := make(map[string]int)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -187,11 +185,10 @@ func runExpAsync(ctx context.Context, collName string, cfg Config, signal <-chan
 				{"median_connection_ready_duration_ms", median(poolMonitor.ConnReadyDur)},
 				{"op_count", opCount},
 				{"timeout_err_count", timeoutErrCount},
+				{"too_many_logical_sessions_err_count", tooManyLogicalSessions},
 				{"average_op_duration", average(opDurs)},
 				{"median_op_duration", median(opDurs)},
 				{"sessions", len(sessionIDSet)},
-				{"unique_errors", len(errSet)},
-				{"errors", errSet},
 			}
 			log.Println("[Experiment] results:")
 			for _, entry := range results {
