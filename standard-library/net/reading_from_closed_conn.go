@@ -39,6 +39,8 @@ func main() {
 		panic(err)
 	}
 
+	conn.Close()
+
 	// Wait for the server to close the connection
 	time.Sleep(2 * time.Second)
 
