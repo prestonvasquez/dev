@@ -15,7 +15,6 @@ import (
 	"go.mongodb.org/mongo-driver/event"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/x/mongo/driver/topology"
 	"golang.org/x/exp/rand"
 )
 
@@ -209,34 +208,69 @@ func runExperiment(ctx context.Context, cfg config, signal <-chan struct{}, coll
 		uri = "mongodb://localhost:27017"
 	}
 
+	//connectionPendingReadDurationMu := sync.Mutex{}
+	//connectionPendingReadErrors := map[string]int{}
+	//connectionPendingReadDurations := []float64{}
+
+	var connectionPendingReadFailedCount atomic.Int32
+	var connectionPendingReadSucceededCount atomic.Int32
+
+	//topology.BGReadCallback = func(addr string, start, read time.Time, errs []error, connClosed bool) {
+	//	connectionPendingReadDurationMu.Lock()
+	//	defer connectionPendingReadDurationMu.Unlock()
+
+	//	if !connClosed {
+	//		connectionPendingReadSucceededCount++
+	//	} else {
+	//		connectionPendingReadFailedCount++
+	//	}
+
+	//	elapsed := time.Since(start)
+	//	connectionPendingReadDurations = append(connectionPendingReadDurations, float64(elapsed.Milliseconds()))
+
+	//	if len(errs) != 0 {
+	//		for _, err := range errs {
+	//			connectionPendingReadErrors[err.Error()]++
+	//		}
+	//	}
+	//}
+
 	var connectionsClosed atomic.Int64
 
 	connectionReadyDurationsMu := sync.Mutex{}
 	connectionReadyDurations := []float64{}
 
-	connectionPendingReadDurationMu := sync.Mutex{}
-	connectionPendingReadFailedCount := 0
-	connectionPendingReadSucceededCount := 0
-	connectionPendingReadDurations := []float64{}
-
-	topology.BGReadCallback = func(addr string, start, read time.Time, errs []error, connClosed bool) {
-		connectionPendingReadDurationMu.Lock()
-		defer connectionPendingReadDurationMu.Unlock()
-
-		if !connClosed {
-			connectionPendingReadSucceededCount++
-		} else {
-			connectionPendingReadFailedCount++
-		}
-
-		elapsed := time.Since(start)
-		connectionPendingReadDurations = append(connectionPendingReadDurations, float64(elapsed.Milliseconds()))
-	}
+	connectionClosedMu := sync.Mutex{}
+	connectionClosedErrors := map[string]int{}
+	connectionClosedReasons := map[string]int{}
 
 	poolMonitor := &event.PoolMonitor{
 		Event: func(pe *event.PoolEvent) {
 			switch pe.Type {
+			case event.ConnectionPendingReadFailed:
+				connectionPendingReadFailedCount.Add(1)
+				//connectionPendingReadFailedCount.Add(1)
+
+				//connectionPendingReadFailedReasonMu.Lock()
+				//connectionPendingReadFailedReasons[pe.Reason] = struct{}{}
+				//connectionPendingReadFailedReasonMu.Unlock()
+			case event.ConnectionPendingReadSucceeded:
+				connectionPendingReadSucceededCount.Add(1)
+
+				//connectionPendingReadDurationMu.Lock()
+				//connectionPendingReadDurations = append(connectionPendingReadDurations, float64(pe.Duration)/float64(time.Millisecond))
+				//connectionPendingReadSucceededCount++
+				//connectionPendingReadDurationMu.Unlock()
 			case event.ConnectionClosed:
+				connectionClosedMu.Lock()
+				if pe.Error != nil {
+					connectionClosedErrors[pe.Error.Error()]++
+				}
+				if pe.Reason != "" {
+					connectionClosedReasons[pe.Reason]++
+				}
+				connectionClosedMu.Unlock()
+
 				connectionsClosed.Add(1)
 			case event.ConnectionReady:
 				connectionReadyDurationsMu.Lock()
@@ -293,38 +327,34 @@ func runExperiment(ctx context.Context, cfg config, signal <-chan struct{}, coll
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf(`[Experiment] results: {
-	"connections_closed": %v,  
-	"connections_ready": %v,
-	"succeeded_pending_reads": %v,
-	"failed_pending_reads": %v,
-	"commands_failed": %v, 
-	"commands_started": %v, 
-	"commands_succeeded": %v,
-	"average_connection_ready_duration_ms": %v, 
-	"median_connection_ready_duration_ms": %v,
-	"op_count": %v,
-	"timeout_err_count": %v,
-	"average_pending_read_dur_ms": %v,
-	"median_pending_read_dur_ms": %v,
-	"average_op_duration": %v, 
-	"median_op_duration": %v,
-}`, connectionsClosed.Load(),
-				len(connectionReadyDurations),
-				connectionPendingReadSucceededCount,
-				connectionPendingReadFailedCount,
-				commandFailed.Load(),
-				commandStarted.Load(),
-				commandSucceeded.Load(),
-				average(connectionReadyDurations),
-				median(connectionReadyDurations),
-				opCount,
-				timeoutErrCount,
-				average(connectionPendingReadDurations),
-				median(connectionPendingReadDurations),
-				average(opDurs),
-				median(opDurs),
-			)
+			type resultEntry struct {
+				key   string
+				value interface{}
+			}
+			results := []resultEntry{
+				{"connections_closed", connectionsClosed.Load()},
+				{"connections_closed_errors", connectionClosedErrors},
+				{"connections_closed_reasons", connectionClosedReasons},
+				{"connections_ready", len(connectionReadyDurations)},
+				{"succeeded_pending_reads", connectionPendingReadSucceededCount.Load()},
+				{"failed_pending_reads", connectionPendingReadFailedCount.Load()},
+				//{"pending_read_errors", connectionPendingReadErrors},
+				{"commands_failed", commandFailed.Load()},
+				{"commands_started", commandStarted.Load()},
+				{"commands_succeeded", commandSucceeded.Load()},
+				{"average_connection_ready_duration_ms", average(connectionReadyDurations)},
+				{"median_connection_ready_duration_ms", median(connectionReadyDurations)},
+				{"op_count", opCount},
+				{"timeout_err_count", timeoutErrCount},
+				//{"average_pending_read_dur_ms", average(connectionPendingReadDurations)},
+				//{"median_pending_read_dur_ms", median(connectionPendingReadDurations)},
+				{"average_op_duration", average(opDurs)},
+				{"median_op_duration", median(opDurs)},
+			}
+			log.Println("[Experiment] results:")
+			for _, entry := range results {
+				log.Printf("  %s: %v", entry.key, entry.value)
+			}
 			return
 		default:
 			expFnCtx, expFnCancel := context.WithTimeout(ctx, cfg.experimentTimeout)

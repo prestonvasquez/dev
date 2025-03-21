@@ -39,11 +39,16 @@ func main() {
 		panic(err)
 	}
 
+	conn.Close()
+
 	// Wait for the server to close the connection
 	time.Sleep(2 * time.Second)
 
 	// Try to read from the closed connection
 	buf := make([]byte, 1024)
+	if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		panic(err)
+	}
 	n, err := conn.Read(buf)
 	if err != nil {
 		fmt.Println("Read error:", err) // Expect "use of closed network connection"

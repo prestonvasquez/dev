@@ -32,12 +32,51 @@ func TestLatency(t *testing.T) {
 		require.NoError(t, err, "failed to run experiment")
 	})
 
+	t.Run("single-threaded find", func(t *testing.T) {
+		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
+			query := bson.D{{Key: "field1", Value: "doesntexist"}}
+			_, err := coll.Find(ctx, query)
+
+			timeoutOps := 0
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				timeoutOps++
+			}
+
+			return experimentResult{
+				ops:        1,
+				timeoutOps: timeoutOps,
+			}
+		})
+		require.NoError(t, err, "failed to run experiment")
+	})
+
+	t.Run("single-threaded find with targetLatency=1s", func(t *testing.T) {
+		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
+			query := bson.D{{Key: "field1", Value: "doesntexist"}}
+			_, err := coll.Find(ctx, query)
+
+			timeoutOps := 0
+			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+				timeoutOps++
+			}
+
+			return experimentResult{
+				ops:        1,
+				timeoutOps: timeoutOps,
+			}
+		})
+		require.NoError(t, err, "failed to run experiment")
+	})
+
 	t.Run("multi-threaded findOne", func(t *testing.T) {
 		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
 			opsToAttempt := 100
 
 			var timeoutOps atomic.Int32
 			var ops atomic.Int32
+
+			var errs []error
+			errMu := sync.Mutex{}
 
 			wg := sync.WaitGroup{}
 			wg.Add(opsToAttempt)
@@ -55,8 +94,15 @@ func TestLatency(t *testing.T) {
 					query := bson.D{{Key: "field1", Value: "doesntexist"}}
 					result := coll.FindOne(ctx, query)
 
-					if err := result.Err(); err != nil && errors.Is(err, context.DeadlineExceeded) {
+					err := result.Err()
+					if err != nil && errors.Is(err, context.DeadlineExceeded) {
 						timeoutOps.Add(1)
+					}
+
+					if err != nil {
+						errMu.Lock()
+						errs = append(errs, err)
+						errMu.Unlock()
 					}
 
 					ops.Add(1)
@@ -75,7 +121,6 @@ func TestLatency(t *testing.T) {
 
 	t.Run("multi-threaded findOne with maxPoolSize=1", func(t *testing.T) {
 		clientOpts := options.Client().SetMaxPoolSize(1)
-
 		err := run(func(ctx context.Context, coll *mongo.Collection) experimentResult {
 			opsToAttempt := 100
 
