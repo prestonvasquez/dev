@@ -20,6 +20,9 @@ func TestChangeStreamClientTimeout(t *testing.T) {
 			if cse.CommandName == "aggregate" {
 				t.Log("aggregate: ", cse.Command)
 			}
+			if cse.CommandName == "getMore" {
+				t.Log("getMore: ", cse.Command)
+			}
 		},
 	}
 
@@ -41,23 +44,24 @@ func TestChangeStreamClientTimeout(t *testing.T) {
 	changeStream, err := coll.Watch(context.Background(), mongo.Pipeline{})
 	require.NoError(t, err)
 
-	eventReceived := make(chan bool)
-
 	go func() {
-		for changeStream.Next(context.Background()) {
+		//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		//defer cancel()
+
+		ctx := context.Background()
+
+		start := time.Now()
+		for changeStream.Next(ctx) {
 			var event bson.M
 			err := changeStream.Decode(&event)
 			require.NoError(t, err)
-
-			if event["operationType"] == "insert" {
-				eventReceived <- true
-			}
 		}
 
-		fmt.Println("wut")
-
-		require.NoError(t, changeStream.Err())
+		fmt.Println(time.Since(start))
 	}()
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
+
+	_, err = coll.InsertOne(context.Background(), bson.D{{Key: "foo", Value: "bar"}})
+	require.NoError(t, err)
 }
