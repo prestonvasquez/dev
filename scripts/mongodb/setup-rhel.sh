@@ -15,7 +15,7 @@ export MONGO_ORCHESTRATION_HOME=$DRIVERS_TOOLS/.evergreen/orchestration
 rm -rf $DRIVERS_TOOLS/mongodb
 
 # Start the server on 27017
-TOPOLOGY="sharded_cluster" MONGODB_VERSION="7.0" sh $DRIVERS_TOOLS/.evergreen/run-orchestration.sh
+TOPOLOGY="sharded_cluster" sh $DRIVERS_TOOLS/.evergreen/run-orchestration.sh
 sudo netstat -tuln | grep 27017
 
 # Install the libmongocrypt stuff

@@ -1,0 +1,123 @@
+{
+	"Name": "examplecoll.insert",
+	"SpanContext": {
+		"TraceID": "8a476a3efe6e999b37aaf63ebbd8e268",
+		"SpanID": "b921e0e27568440d",
+		"TraceFlags": "01",
+		"TraceState": "",
+		"Remote": false
+	},
+	"Parent": {
+		"TraceID": "8a476a3efe6e999b37aaf63ebbd8e268",
+		"SpanID": "5f7ac94b67f637ad",
+		"TraceFlags": "01",
+		"TraceState": "",
+		"Remote": false
+	},
+	"SpanKind": 3,
+	"StartTime": "2025-04-03T10:55:19.542668-06:00",
+	"EndTime": "2025-04-03T10:55:19.545705709-06:00",
+	"Attributes": [
+		{
+			"Key": "db.system",
+			"Value": {
+				"Type": "STRING",
+				"Value": "mongodb"
+			}
+		},
+		{
+			"Key": "db.operation",
+			"Value": {
+				"Type": "STRING",
+				"Value": "insert"
+			}
+		},
+		{
+			"Key": "db.name",
+			"Value": {
+				"Type": "STRING",
+				"Value": "exampledb"
+			}
+		},
+		{
+			"Key": "net.transport",
+			"Value": {
+				"Type": "STRING",
+				"Value": "ip_tcp"
+			}
+		},
+		{
+			"Key": "net.peer.port",
+			"Value": {
+				"Type": "INT64",
+				"Value": 27017
+			}
+		},
+		{
+			"Key": "net.peer.name",
+			"Value": {
+				"Type": "STRING",
+				"Value": "localhost:27017[-5]"
+			}
+		},
+		{
+			"Key": "db.mongodb.collection",
+			"Value": {
+				"Type": "STRING",
+				"Value": "examplecoll"
+			}
+		}
+	],
+	"Events": null,
+	"Links": null,
+	"Status": {
+		"Code": "Unset",
+		"Description": ""
+	},
+	"DroppedAttributes": 0,
+	"DroppedEvents": 0,
+	"DroppedLinks": 0,
+	"ChildSpanCount": 0,
+	"Resource": [
+		{
+			"Key": "service.name",
+			"Value": {
+				"Type": "STRING",
+				"Value": "unknown_service:main"
+			}
+		},
+		{
+			"Key": "telemetry.sdk.language",
+			"Value": {
+				"Type": "STRING",
+				"Value": "go"
+			}
+		},
+		{
+			"Key": "telemetry.sdk.name",
+			"Value": {
+				"Type": "STRING",
+				"Value": "opentelemetry"
+			}
+		},
+		{
+			"Key": "telemetry.sdk.version",
+			"Value": {
+				"Type": "STRING",
+				"Value": "1.35.0"
+			}
+		}
+	],
+	"InstrumentationScope": {
+		"Name": "go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo",
+		"Version": "0.60.0",
+		"SchemaURL": "",
+		"Attributes": null
+	},
+	"InstrumentationLibrary": {
+		"Name": "go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo",
+		"Version": "0.60.0",
+		"SchemaURL": "",
+		"Attributes": null
+	}
+}
