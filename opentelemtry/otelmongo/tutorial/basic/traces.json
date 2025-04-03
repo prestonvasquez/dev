@@ -1,22 +1,22 @@
 {
 	"Name": "examplecoll.insert",
 	"SpanContext": {
-		"TraceID": "8a476a3efe6e999b37aaf63ebbd8e268",
-		"SpanID": "b921e0e27568440d",
+		"TraceID": "2fa3ca565ea3b8d90064b35a10bd8020",
+		"SpanID": "a542429fed52e537",
 		"TraceFlags": "01",
 		"TraceState": "",
 		"Remote": false
 	},
 	"Parent": {
-		"TraceID": "8a476a3efe6e999b37aaf63ebbd8e268",
-		"SpanID": "5f7ac94b67f637ad",
+		"TraceID": "2fa3ca565ea3b8d90064b35a10bd8020",
+		"SpanID": "9195ff81896f2a42",
 		"TraceFlags": "01",
 		"TraceState": "",
 		"Remote": false
 	},
 	"SpanKind": 3,
-	"StartTime": "2025-04-03T10:55:19.542668-06:00",
-	"EndTime": "2025-04-03T10:55:19.545705709-06:00",
+	"StartTime": "2025-04-03T11:02:21.999809-06:00",
+	"EndTime": "2025-04-03T11:02:22.005812167-06:00",
 	"Attributes": [
 		{
 			"Key": "db.system",
