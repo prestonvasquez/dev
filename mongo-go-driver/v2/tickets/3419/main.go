@@ -42,16 +42,23 @@ func main() {
 	}
 	log.Printf("Pool warmed to %d connections\n", poolSize)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// 3) Spawn workers that reuse those connections
 	for i := 0; i < workerCount; i++ {
 		go func(id int) {
 			for {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				err := client.Ping(ctx, nil)
-				cancel()
-				if err != nil {
-					log.Printf("worker %d ping error: %v", id, err)
-					time.Sleep(10 * time.Millisecond)
+				select {
+				case <-ctx.Done():
+					// Context was cancelled – exit the goroutine
+					log.Printf("worker %d stopping", id)
+					return
+				default:
+					err := client.Ping(context.Background(), nil)
+					if err != nil {
+						log.Printf("worker %d ping error: %v", id, err)
+						time.Sleep(10 * time.Millisecond)
+					}
 				}
 			}
 		}(i)
@@ -68,4 +75,7 @@ func main() {
 	pprof.StopCPUProfile()
 	f.Close()
 	log.Println("Done, wrote cpu.prof")
+
+	cancel()
+	time.Sleep(1 * time.Second)
 }
