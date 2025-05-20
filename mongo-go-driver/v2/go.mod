@@ -5,7 +5,6 @@ go 1.22.0
 toolchain go1.22.6
 
 require (
-	github.com/cohere-ai/cohere-go/v2 v2.13.0
 	github.com/google/uuid v1.6.0
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/montanaflynn/stats v0.7.1
@@ -18,12 +17,10 @@ require (
 	gonum.org/v1/gonum v0.15.1
 )
 
-replace go.mongodb.org/mongo-driver/v2 => /Users/preston.vasquez/Developer/mongo-go-driver
+//replace go.mongodb.org/mongo-driver/v2 => /Users/preston.vasquez/Developer/mongo-go-driver
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.30.3 // indirect
-	github.com/aws/smithy-go v1.20.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-openapi/errors v0.22.0 // indirect
 	github.com/go-openapi/strfmt v0.21.3 // indirect
