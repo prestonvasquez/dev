@@ -17,9 +17,14 @@ const (
 )
 
 func main() {
+	uri := os.Getenv("MONGODB_URI")
+	if uri == "" {
+		uri = "mongodb://localhost:27017"
+	}
+
 	// 1) Connect with a sane pool
 	client, err := mongo.Connect(options.Client().
-		ApplyURI("mongodb://localhost:27017").
+		ApplyURI(uri).
 		SetMaxPoolSize(poolSize).
 		SetMaxConnecting(poolSize).
 		SetServerSelectionTimeout(5 * time.Second).
