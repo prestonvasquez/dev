@@ -50,9 +50,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	clientOpt := options.Client().SetMonitor(otelmongo.NewMonitor(
-		otelmongo.WithTracerProvider(traceProvider),
-	))
+	clientOpt := options.Client().SetMonitor(otelmongo.NewMonitor())
 
 	client, err := mongo.Connect(ctx, clientOpt)
 	if err != nil {

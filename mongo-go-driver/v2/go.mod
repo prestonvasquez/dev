@@ -8,12 +8,12 @@ require (
 	github.com/cohere-ai/cohere-go/v2 v2.13.0
 	github.com/google/uuid v1.6.0
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
-	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
+	github.com/montanaflynn/stats v0.7.1
 	github.com/motemen/go-loghttp v0.0.0-20231107055348-29ae44b293f4
 	github.com/stretchr/testify v1.9.0
 	github.com/tmc/langchaingo v0.1.13-pre.0
-	go.mongodb.org/mongo-driver v1.14.0
-	go.mongodb.org/mongo-driver/v2 v2.0.0-beta2
+	go.mongodb.org/mongo-driver v1.17.3
+	go.mongodb.org/mongo-driver/v2 v2.2.0
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
 	gonum.org/v1/gonum v0.15.1
 )

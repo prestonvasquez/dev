@@ -1,22 +1,22 @@
 {
 	"Name": "examplecoll.insert",
 	"SpanContext": {
-		"TraceID": "2fa3ca565ea3b8d90064b35a10bd8020",
-		"SpanID": "a542429fed52e537",
+		"TraceID": "7547f115b745bc8c80b95415f4a7149a",
+		"SpanID": "f62c6439d4ea44d3",
 		"TraceFlags": "01",
 		"TraceState": "",
 		"Remote": false
 	},
 	"Parent": {
-		"TraceID": "2fa3ca565ea3b8d90064b35a10bd8020",
-		"SpanID": "9195ff81896f2a42",
+		"TraceID": "7547f115b745bc8c80b95415f4a7149a",
+		"SpanID": "63e1d7846172005f",
 		"TraceFlags": "01",
 		"TraceState": "",
 		"Remote": false
 	},
 	"SpanKind": 3,
-	"StartTime": "2025-04-03T11:02:21.999809-06:00",
-	"EndTime": "2025-04-03T11:02:22.005812167-06:00",
+	"StartTime": "2025-04-03T13:55:57.11581-06:00",
+	"EndTime": "2025-04-03T13:55:57.11919-06:00",
 	"Attributes": [
 		{
 			"Key": "db.system",
@@ -57,7 +57,7 @@
 			"Key": "net.peer.name",
 			"Value": {
 				"Type": "STRING",
-				"Value": "localhost:27017[-5]"
+				"Value": "localhost:27017[-4]"
 			}
 		},
 		{
