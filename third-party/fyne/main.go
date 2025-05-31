@@ -10,194 +10,175 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 )
 
-// OHLC represents one “candlestick” worth of data.
+// OHLC represents one candlestick’s price data.
 type OHLC struct {
 	Open, High, Low, Close float64
 }
 
 func main() {
-	// ----------------------------------------------------------------
-	// 1) Window setup
-	// ----------------------------------------------------------------
+	// ----------------------------------------
+	// 1) App and Window setup
+	// ----------------------------------------
 	myApp := app.New()
-	w := myApp.NewWindow("Dynamic Candlestick Chart")
-	w.Resize(fyne.NewSize(600, 400))
+	w := myApp.NewWindow("Static Candlestick + Button Demo")
+	w.Resize(fyne.NewSize(600, 450))
 
-	// ----------------------------------------------------------------
-	// 2) Graphing parameters
-	// ----------------------------------------------------------------
-	const numCandles = 30                      // how many candles visible at once
-	const graphW, graphH = 500.0, 300.0        // pixel size of the chart area
-	const originX, originY = 50.0, 350.0       // bottom-left corner of the chart (in window coords)
-	candleSlot := graphW / float64(numCandles) // horizontal “slot” per candle
-	candleWidth := candleSlot * 0.6            // width of each candle body
+	// ----------------------------------------
+	// 2) Chart parameters
+	// ----------------------------------------
+	const numCandles = 5                       // number of candles
+	const graphW, graphH = 500.0, 300.0        // pixel size of chart area
+	const originX, originY = 50.0, 350.0       // bottom-left of chart in window coords
+	candleSlot := graphW / float64(numCandles) // horizontal slot per candle
+	candleWidth := candleSlot * 0.6            // width of candle body (60% of slot)
 
-	// Seed the RNG once:
+	// ----------------------------------------
+	// 3) Generate initial OHLC data (static)
+	// ----------------------------------------
 	rand.Seed(time.Now().UnixNano())
+	ohlcData := generateRandomOHLC(numCandles)
 
-	// ----------------------------------------------------------------
-	// 3) Generate initial random OHLC data
-	// ----------------------------------------------------------------
-	// Start from an arbitrary base price, e.g. 100.0
-	basePrice := 100.0
-	ohlcWindow := make([]OHLC, numCandles)
-	for i := 0; i < numCandles; i++ {
-		ohlcWindow[i] = randomCandle(basePrice)
-		basePrice = ohlcWindow[i].Close
-	}
-
-	// ----------------------------------------------------------------
-	// 4) Pre–allocate shapes for “wick” (line) and “body” (rectangle)
-	// ----------------------------------------------------------------
+	// ----------------------------------------
+	// 4) Prepare shapes & container for chart
+	// ----------------------------------------
+	// Pre-allocate slices for wick (line) and body (rectangle) shapes
 	wicks := make([]*canvas.Line, numCandles)
 	bodies := make([]*canvas.Rectangle, numCandles)
 
-	// Create a container with no auto layout (absolute coords)
-	content := container.NewWithoutLayout()
+	// A container without layout allows absolute positioning
+	chartContainer := container.NewWithoutLayout()
 
-	// Create static axes (x-axis and y-axis)
-	xAxis := canvas.NewLine(color.Gray{Y: 100})
+	// Static axes: X‐axis (horizontal) and Y‐axis (vertical)
+	xAxis := canvas.NewLine(color.Gray{Y: 128})
 	xAxis.StrokeWidth = 1
 	xAxis.Position1 = fyne.NewPos(float32(originX), float32(originY))
 	xAxis.Position2 = fyne.NewPos(float32(originX+graphW), float32(originY))
-	content.Add(xAxis)
+	chartContainer.Add(xAxis)
 
-	yAxis := canvas.NewLine(color.Gray{Y: 100})
+	yAxis := canvas.NewLine(color.Gray{Y: 128})
 	yAxis.StrokeWidth = 1
 	yAxis.Position1 = fyne.NewPos(float32(originX), float32(originY-graphH))
 	yAxis.Position2 = fyne.NewPos(float32(originX), float32(originY))
-	content.Add(yAxis)
+	chartContainer.Add(yAxis)
 
-	// Function to map a price in [priceMin, priceMax] → a y‐coordinate in the chart
-	mapPriceToY := func(price, priceMin, priceMax float64) float64 {
-		// Normalize price into [0,1], then map to [originY-graphH .. originY]:
-		if priceMax == priceMin {
-			// edge‐case: avoid division by zero
+	// Helper: map a price in [minPrice, maxPrice] → y‐coordinate on canvas
+	mapPriceToY := func(price, minPrice, maxPrice float64) float64 {
+		if maxPrice == minPrice {
+			// avoid division by zero
 			return originY - graphH/2.0
 		}
-		normalized := (price - priceMin) / (priceMax - priceMin)
-		// y grows downward, so top of chart = originY - graphH, bottom = originY.
+		normalized := (price - minPrice) / (maxPrice - minPrice)
+		// Top of chart is originY - graphH; bottom is originY
 		return originY - normalized*graphH
 	}
 
-	// Initialize the candle shapes based on initial ohlcWindow
-	updateShapes := func() {
-		// 1) Find sliding‐window min & max (for vertical scaling)
-		priceMin := math.Inf(1)
-		priceMax := math.Inf(-1)
-		for _, c := range ohlcWindow {
-			if c.Low < priceMin {
-				priceMin = c.Low
+	// drawChart updates or creates shapes based on current ohlcData
+	drawChart := func() {
+		// 1) Find window’s min and max prices
+		minPrice := math.Inf(1)
+		maxPrice := math.Inf(-1)
+		for _, c := range ohlcData {
+			if c.Low < minPrice {
+				minPrice = c.Low
 			}
-			if c.High > priceMax {
-				priceMax = c.High
+			if c.High > maxPrice {
+				maxPrice = c.High
 			}
 		}
 
-		// 2) For each candle, compute wick‐line and body‐rectangle coords & color
-		for i, candle := range ohlcWindow {
-			// Horizontal x‐coordinates for this candle
+		// 2) For each candle, compute wick and body coordinates + color
+		for i, candle := range ohlcData {
+			// X-center of this candle slot
 			xCenter := originX + float64(i)*candleSlot + candleSlot/2.0
-			// “Wick” is a vertical line from High→Low
-			yHigh := mapPriceToY(candle.High, priceMin, priceMax)
-			yLow := mapPriceToY(candle.Low, priceMin, priceMax)
-			line := wicks[i]
-			if line == nil {
-				// Create a new wick‐line if not already built
+
+			// Wick: Line from High → Low
+			yHigh := mapPriceToY(candle.High, minPrice, maxPrice)
+			yLow := mapPriceToY(candle.Low, minPrice, maxPrice)
+			var line *canvas.Line
+			if wicks[i] == nil {
 				line = canvas.NewLine(color.Black)
 				line.StrokeWidth = 1
 				wicks[i] = line
-				content.Add(line)
+				chartContainer.Add(line)
+			} else {
+				line = wicks[i]
 			}
 			line.Position1 = fyne.NewPos(float32(xCenter), float32(yHigh))
 			line.Position2 = fyne.NewPos(float32(xCenter), float32(yLow))
 			canvas.Refresh(line)
 
-			// “Body” is a rectangle between Open→Close
-			yOpen := mapPriceToY(candle.Open, priceMin, priceMax)
-			yClose := mapPriceToY(candle.Close, priceMin, priceMax)
+			// Body: Rectangle between Open → Close
+			yOpen := mapPriceToY(candle.Open, minPrice, maxPrice)
+			yClose := mapPriceToY(candle.Close, minPrice, maxPrice)
 
-			// Top of the body is max(Open,Close), bottom is min(Open,Close)
+			// Top is min(yOpen, yClose); bottom is max(yOpen, yClose)
 			yTop := math.Min(yOpen, yClose)
 			yBottom := math.Max(yOpen, yClose)
-			bodyHeight := yBottom - yTop
-			body := bodies[i]
-			if body == nil {
-				body = canvas.NewRectangle(color.Transparent)
-				body.StrokeWidth = 1
-				bodies[i] = body
-				content.Add(body)
-			}
-			// Move and resize
-			body.Move(fyne.NewPos(float32(xCenter-candleWidth/2.0), float32(yTop)))
-			body.Resize(fyne.NewSize(float32(candleWidth), float32(bodyHeight)))
+			height := yBottom - yTop
 
-			// Fill‐color: green if Close ≥ Open, red otherwise
-			if candle.Close >= candle.Open {
-				body.FillColor = color.NRGBA{R: 34, G: 139, B: 34, A: 255} // dark green
-				body.StrokeColor = color.NRGBA{R: 0, G: 100, B: 0, A: 255}
+			var rect *canvas.Rectangle
+			if bodies[i] == nil {
+				rect = canvas.NewRectangle(color.Transparent)
+				rect.StrokeWidth = 1
+				bodies[i] = rect
+				chartContainer.Add(rect)
 			} else {
-				body.FillColor = color.NRGBA{R: 178, G: 34, B: 34, A: 255} // firebrick red
-				body.StrokeColor = color.NRGBA{R: 139, G: 0, B: 0, A: 255}
+				rect = bodies[i]
 			}
-			canvas.Refresh(body)
+			rect.Move(fyne.NewPos(float32(xCenter-candleWidth/2.0), float32(yTop)))
+			rect.Resize(fyne.NewSize(float32(candleWidth), float32(height)))
+
+			// Fill color: green if Close ≥ Open; red otherwise
+			if candle.Close >= candle.Open {
+				rect.FillColor = color.NRGBA{R: 34, G: 139, B: 34, A: 255} // dark green
+				rect.StrokeColor = color.NRGBA{R: 0, G: 100, B: 0, A: 255}
+			} else {
+				rect.FillColor = color.NRGBA{R: 178, G: 34, B: 34, A: 255} // firebrick red
+				rect.StrokeColor = color.NRGBA{R: 139, G: 0, B: 0, A: 255}
+			}
+			canvas.Refresh(rect)
 		}
 	}
 
-	// Build initial shapes
-	updateShapes()
+	// Draw the initial chart
+	drawChart()
 
-	// Tell the window to use our “content” container
+	// ----------------------------------------
+	// 5) Create a button that “does something”
+	//    In this case, it generates a brand‐new random OHLC dataset
+	//    and redraws the chart.
+	// ----------------------------------------
+	button := widget.NewButton("Randomize Data", func() {
+		ohlcData = generateRandomOHLC(numCandles)
+		drawChart()
+	})
+
+	// Place the button above the chart using a Border layout
+	content := container.NewBorder(button, nil, nil, nil, chartContainer)
 	w.SetContent(content)
-
-	// ----------------------------------------------------------------
-	// 5) Animate: every 100 ms, drop the oldest candle, generate a new random one,
-	//    shift the window, and redraw.
-	// ----------------------------------------------------------------
-	ticker := time.NewTicker(100 * time.Millisecond)
-	go func() {
-		for range ticker.C {
-			// 5.1) Remove first element and shift the slice left
-			ohlcWindow = ohlcWindow[1:]
-
-			// 5.2) Generate a new candle based on the previous close
-			prevClose := ohlcWindow[len(ohlcWindow)-1].Close
-			newCandle := randomCandle(prevClose)
-
-			// 5.3) Append the new candle to the end
-			ohlcWindow = append(ohlcWindow, newCandle)
-
-			// 5.4) Use fyne.Do to ensure UI‐thread safety
-			fyne.Do(func() {
-				updateShapes()
-			})
-		}
-	}()
-
-	// 6) Show the window (blocking call)
 	w.ShowAndRun()
 }
 
-// randomCandle generates a plausible random OHLC candle given an “open” price.
-// - open = prevClose
-// - high = open + rand*volatility
-// - low = open – rand*volatility
-// - close is chosen randomly between low and high
-func randomCandle(prevClose float64) OHLC {
-	// Choose a small “volatility” relative to the previous price
-	volatility := prevClose * 0.02 // ±2%
-	// high = open + Δ
-	hi := prevClose + rand.Float64()*volatility
-	// low = open – Δ
-	lo := prevClose - rand.Float64()*volatility
-	// close = somewhere between lo and hi
-	cl := lo + rand.Float64()*(hi-lo)
-	return OHLC{
-		Open:  prevClose,
-		High:  hi,
-		Low:   lo,
-		Close: cl,
+// generateRandomOHLC returns a slice of count random OHLC candles.
+// We start at some base price (e.g. 100.0) and do a small random walk.
+func generateRandomOHLC(count int) []OHLC {
+	out := make([]OHLC, count)
+	base := 100.0
+	for i := 0; i < count; i++ {
+		vol := base * 0.02 // ±2% volatility
+		high := base + rand.Float64()*vol
+		low := base - rand.Float64()*vol
+		closePrice := low + rand.Float64()*(high-low)
+		out[i] = OHLC{
+			Open:  base,
+			High:  high,
+			Low:   low,
+			Close: closePrice,
+		}
+		base = closePrice
 	}
+	return out
 }
