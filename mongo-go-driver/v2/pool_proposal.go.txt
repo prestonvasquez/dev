@@ -1,0 +1,173 @@
+
+// wait pulls exactly one wantConn and allocates its Connection struct, or returns ok=false if
+// the pool is not ready, no one is waiting, the context expires, or the pool is closed.
+func (p *pool) wait(ctx context.Context) (w *wantConn, conn *connection, ok bool) {
+    // 1) Set up a one‐shot signal on ctx.Done() to wake any cond.Wait().
+    done := make(chan struct{})
+    go func() {
+        select {
+        case <-ctx.Done():
+            p.createConnectionsCond.L.Lock()
+            p.createConnectionsCond.Broadcast()
+            p.createConnectionsCond.L.Unlock()
+        case <-done:
+        }
+    }()
+
+    // 2) Enter the cond‐locked loop.
+    p.createConnectionsCond.L.Lock()
+    defer func() {
+        close(done)                  // stop the goroutine above
+        p.createConnectionsCond.L.Unlock()
+    }()
+
+    for {
+        // a) If the caller’s context is gone, pop & cancel one waiter, then exit.
+        if err := ctx.Err(); err != nil {
+            w = p.newConnWait.popFront()
+            if w != nil {
+                w.cancel(p, err)
+            }
+            return nil, nil, false
+        }
+
+        // b) If the pool isn’t Ready, bail.
+        p.stateMu.RLock()
+        isReady := p.state == poolReady
+        p.stateMu.RUnlock()
+        if !isReady {
+            return nil, nil, false
+        }
+
+        // c) If we’re at capacity, wait for a free slot.
+        total := len(p.conns)
+        if p.maxSize != 0 && uint64(total) >= p.maxSize {
+            p.createConnectionsCond.Wait()
+            continue
+        }
+
+        // d) If nobody’s queued, nothing to do.
+        if p.newConnWait.len() == 0 {
+            return nil, nil, false
+        }
+
+        // e) Otherwise we have both room and a waiter → proceed.
+        break
+    }
+
+    // 3) Pop exactly one wantConn.
+    w = p.newConnWait.popFront()
+
+    // 4) Allocate the Connection object and register it.
+    conn = newConnection(p.address, p.connOpts...)
+    conn.pool = p
+    conn.driverConnectionID = atomic.AddInt64(&p.nextID, 1)
+    p.conns[conn.driverConnectionID] = conn
+
+    // 5) Emit “ConnectionCreated”
+    if mustLogPoolMessage(p) {
+        logPoolMessage(
+            p,
+            logger.ConnectionCreated,
+            logger.KeyDriverConnectionID, conn.driverConnectionID,
+        )
+    }
+    if p.monitor != nil {
+        p.monitor.Event(&event.ConnectionCreatedEvent{
+            Address:      p.address.String(),
+            ConnectionID: conn.driverConnectionID,
+        })
+    }
+
+    return w, conn, true
+}
+
+// spawnConnectionIfNeeded will block if the pool is full or if maxConnecting is reached,
+// but will wake on ctx.Done(). Once it gets a slot, it fires spawnConnectionMaker.
+func (p *pool) spawnConnectionIfNeeded(ctx context.Context) {
+    // 1) Pull one waiter + prebuilt conn
+    w, conn, ok := p.wait(ctx)
+    if !ok {
+        return
+    }
+
+    // 2) Block until we get a handshake slot (or ctx times out).
+    select {
+    case p.connectingSem <- struct{}{}:
+        // slot acquired
+    case <-ctx.Done():
+        w.cancel(p, ctx.Err())
+        return
+    }
+
+    // 3) Hand off to the creator
+    p.spawnConnectionMaker(ctx, w, conn)
+}
+
+// spawnConnectionMaker actually does the TCP/TLS + Mongo handshake, emits “Ready,”
+– and delivers the connection (or error) to the waiter.
+func (p *pool) spawnConnectionMaker(ctx context.Context, w *wantConn, conn *connection) {
+    go func() {
+        // When we finish, free the handshake slot, signal one full‐pool waiter,
+        // and try to spawn the next creator.
+        defer func() {
+            <-p.connectingSem
+            p.createConnectionsCond.L.Lock()
+            p.createConnectionsCond.Signal()
+            p.createConnectionsCond.L.Unlock()
+            go p.spawnConnectionIfNeeded(ctx)
+        }()
+
+        // A) Connect with cancellation support.
+        connCtx, cancel := context.WithCancel(context.Background())
+        go func() {
+            <-ctx.Done()
+            cancel()
+        }()
+
+        start := time.Now()
+        err := conn.connect(connCtx)
+        cancel()
+        duration := time.Since(start)
+
+        if err != nil {
+            // B) Handshake failed → log & deliver error
+            if mustLogPoolMessage(p) {
+                logPoolMessage(
+                    p,
+                    logger.ConnectionCheckoutFailed,
+                    logger.KeyDriverConnectionID, conn.driverConnectionID,
+                    logger.KeyError, err.Error(),
+                )
+            }
+            w.tryDeliver(nil, err)
+            p.removeConnection(
+                conn,
+                reason{loggerConn: logger.ReasonConnClosedError, event: event.ReasonError},
+                err,
+            )
+            _ = p.closeConnection(conn)
+            return
+        }
+
+        // C) Handshake succeeded → emit “ConnectionReady”
+        if mustLogPoolMessage(p) {
+            logPoolMessage(
+                p,
+                logger.ConnectionReady,
+                logger.KeyDriverConnectionID, conn.driverConnectionID,
+                logger.KeyDurationMS, duration.Milliseconds(),
+            )
+        }
+        if p.monitor != nil {
+            p.monitor.Event(&event.ConnectionReadyEvent{
+                Address:      p.address.String(),
+                ConnectionID: conn.driverConnectionID,
+                Duration:     duration,
+            })
+        }
+
+        // D) Deliver the ready connection to the waiter.
+        w.tryDeliver(conn, nil)
+    }()
+}
