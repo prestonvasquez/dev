@@ -264,9 +264,7 @@ func Test2884_CheckInState(t *testing.T) {
 }
 
 func Test_3006_ChangeStream(t *testing.T) {
-	monitor := newMonitor(true, "getMore")
-
-	opts := options.Client().SetMonitor(monitor.commandMonitor)
+	opts := options.Client()
 
 	client, err := mongo.Connect(opts)
 	require.NoError(t, err, "failed to connect to server")
@@ -285,28 +283,22 @@ func Test_3006_ChangeStream(t *testing.T) {
 
 	defer cs.Close(context.Background())
 
-	// Insert 5 documents
-	for i := 0; i < 2; i++ {
-		_, err = coll.InsertOne(context.Background(), bson.D{})
-		require.NoError(t, err)
-	}
-
-	// Create a FP that will block the next "getMore" call causing the CS next
-	// to fail with a CSOT.
-	teardown, err := createBlockFP(t, client, "getMore", 500, 1)
-	require.NoError(t, err)
-
-	defer teardown()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
 	defer cancel()
 
 	ok := cs.Next(ctx)
 	assert.False(t, ok)
+	assert.ErrorIs(t, cs.Err(), context.DeadlineExceeded)
+
+	// Insert some documents
+	for i := 0; i < 2; i++ {
+		_, err = coll.InsertOne(context.Background(), bson.D{})
+		require.NoError(t, err)
+	}
 
 	// A subsequent call to next that does not time out should resume since the
 	// error was CSOT.
-	ok = cs.TryNext(context.Background())
+	ok = cs.Next(context.Background())
 	assert.True(t, ok)
 }
 

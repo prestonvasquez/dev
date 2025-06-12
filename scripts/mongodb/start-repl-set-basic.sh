@@ -1,6 +1,19 @@
 #!/bin/bash
 set -ex
 
-cd ${DRIVERS_TOOLS}/.evergreen/docker
-#ARCH=amd64 TOPOLOGY=replica_set MONGODB_VERSION="4.0" TARGET_IMAGE="ubuntu18.04" ./run-server.sh
+#cd ${DRIVERS_TOOLS}/.evergreen/docker
+#
+##aws sso login --profile $AWS_PROFILE
+##bash setup.sh
+#
+##ARCH=amd64 TOPOLOGY=replica_set MONGODB_VERSION="4.0" TARGET_IMAGE="ubuntu18.04" ./run-server.sh
+#TOPOLOGY=replica_set ./run-server.sh
+
+pushd "${DRIVERS_TOOLS}/.evergreen/docker"
+
+# Can run from master once  DRIVERS-3280 is resolved.
+git checkout 36dd90cc38c3d36cab20944faf6eb0e896bc0cc5
+
 TOPOLOGY=replica_set ./run-server.sh
+
+popd
