@@ -224,15 +224,15 @@ func BenchmarkBSONv1vs2Comparison(b *testing.B) {
 		ByteType:    'a',
 		RuneType:    '字',
 
-		//ArrayType:  [3]int{1, 2, 3},
-		//SliceType:  []string{"a", "b"},
-		//MapType:    map[string]int{"key": 1},
-		//StructType: struct{ A int }{A: 10},
+		ArrayType:  [3]int{1, 2, 3},
+		SliceType:  []string{"a", "b"},
+		MapType:    map[string]int{"key": 1},
+		StructType: struct{ A int }{A: 10},
 
-		PointerType: &i,
-		//InterfaceType: 100,
+		PointerType:   &i,
+		InterfaceType: 100,
 
-		//EmptyStruct: struct{}{},
+		EmptyStruct: struct{}{},
 	}
 
 	// Marshal data using BSON v1
