@@ -1,0 +1,15 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/prestonvasquez/dev/mongo-go-driver/noreplace/inline/bson
+cpu: Apple M1 Pro
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  358411	      3421 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  351889	      3449 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  347346	      3394 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  367555	      3550 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  343855	      3432 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  359922	      3342 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  345075	      3399 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  361545	      3317 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  364280	      3332 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  356604	      3313 ns/op	    1360 B/op	      47 allocs/op
+PASS

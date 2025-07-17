@@ -10,10 +10,11 @@ import (
 )
 
 func TestInsertOne(t *testing.T) {
-	const uri = "mongodb://127.0.0.1:28017/?directConnection=true"
+	const uri = "mongodb://localhost:28017/?directConnection=true"
 
 	clientOpts := options.Client().ApplyURI(uri)
 	client, err := mongo.Connect(clientOpts)
+	//client, err := mongo.Connect()
 	require.NoError(t, err)
 
 	defer func() {

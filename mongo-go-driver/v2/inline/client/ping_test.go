@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/x/mongo/driver/xoptions"
 )
 
 func TestPing(t *testing.T) {
@@ -18,4 +19,9 @@ func TestPing(t *testing.T) {
 
 	err = client.Ping(context.Background(), nil)
 	require.NoError(t, err)
+}
+
+func TestInternalClientOptions(t *testing.T) {
+	opts := options.Client()
+	_ = xoptions.SetInternalInsertOneOptions(opts, "rawData", true)
 }

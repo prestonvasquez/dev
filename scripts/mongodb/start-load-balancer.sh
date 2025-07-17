@@ -1,6 +1,15 @@
 #!/bin/bash
 set -ex
 
-cd ${DRIVERS_TOOLS}/.evergreen/docker
-#ARCH=amd64 TOPOLOGY=replica_set MONGODB_VERSION="4.0" TARGET_IMAGE="ubuntu18.04" ./run-server.sh
-TOPOLOGY=sharded_cluster ORCHESTRATION_FILE=basic-load-balancer.json ./run-server.sh
+export MONGO_ORCHESTRATION_HOME=/Users/preston.vasquez/Developer/mongo-orchestration-home
+
+mongo-orchestration stop --pidfile=${MONGO_ORCHESTRATION_HOME}/server.pid
+${DRIVERS_TOOLS}/.evergreen/start-orchestration.sh ${MONGO_ORCHESTRATION_HOME}
+
+sudo cp -r /users/preston.vasquez/.local/m/versions/8.1.1/bin /Users/preston.vasquez/Developer/drivers-evergreen-tools/mongodb/bin
+
+${DRIVERS_TOOLS}/.evergreen/start-orchestration.sh /Users/preston.vasquez/Developer/mongo-orchestration-home
+
+curl -X POST http://localhost:8889/v1/sharded_clusters \
+  -H 'Content-Type: application/json' \
+  -d @${DRIVERS_TOOLS}/.evergreen/orchestration/configs/sharded_clusters/basic-load-balancer.json
