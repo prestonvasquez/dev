@@ -2,14 +2,14 @@ goos: darwin
 goarch: arm64
 pkg: github.com/prestonvasquez/dev/mongo-go-driver/noreplace/inline/bson
 cpu: Apple M1 Pro
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  358411	      3421 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  351889	      3449 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  347346	      3394 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  367555	      3550 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  343855	      3432 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  359922	      3342 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  345075	      3399 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  361545	      3317 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  364280	      3332 ns/op	    1360 B/op	      47 allocs/op
-BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  356604	      3313 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  339478	      3375 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  372159	      3285 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  370348	      3274 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  357565	      3283 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  372039	      3269 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  358848	      3358 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  366808	      3537 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  326421	      3540 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  369318	      3374 ns/op	    1360 B/op	      47 allocs/op
+BenchmarkBSONv1vs2Comparison/BSON_v1-10         	  371803	      3308 ns/op	    1360 B/op	      47 allocs/op
 PASS

@@ -2,7 +2,7 @@ module github.com/prestonvasquez/dev/mongo-go-driver/noreplace
 
 go 1.23.1
 
-replace go.mongodb.org/mongo-driver/v2 => /Users/prestonvasquez/Developer/mongo-go-driver
+replace go.mongodb.org/mongo-driver/v2 => /Users/preston.vasquez/Developer/mongo-go-driver
 
 require (
 	github.com/stretchr/testify v0.0.0-20161117074351-18a02ba4a312
