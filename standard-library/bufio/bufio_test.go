@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -83,4 +84,10 @@ func TestReadFull_EOF(t *testing.T) {
 
 	_, err := io.ReadFull(reader, make([]byte, 100))
 	fmt.Println(err)
+}
+
+func TestPeekError(t *testing.T) {
+	r1 := bufio.NewReader(strings.NewReader(""))
+	b1, err1 := r1.Peek(1)
+	fmt.Println("Peek 1 byte:", string(b1), "Error:", err1)
 }

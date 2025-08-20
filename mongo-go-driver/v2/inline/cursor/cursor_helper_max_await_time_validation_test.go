@@ -114,8 +114,11 @@ func TestClientLevelTimeoutForCursors(t *testing.T) {
 
 	//assert.Error(t, err, "expected validation error when using MaxAwaitTime with a non-capped collection")
 
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	// What happens if we use the decoder?
-	for res.Next(context.Background()) {
+	for res.Next(ctx) {
 		fmt.Println("Found document:", res.Current)
 	}
 
