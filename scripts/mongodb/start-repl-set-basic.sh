@@ -11,6 +11,6 @@ set -ex
 
 pushd "${DRIVERS_TOOLS}/.evergreen/docker"
 
-TOPOLOGY=replica_set ./run-server.sh
+MONGODB_VERSION="latest" TOPOLOGY=replica_set ./run-server.sh
 
 popd

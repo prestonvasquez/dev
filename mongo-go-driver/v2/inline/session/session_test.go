@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/event"
@@ -27,6 +28,41 @@ func newCommandMonitor() *event.CommandMonitor {
 		//	fmt.Printf("Command failed: %s\n", evt.Failure)
 		//},
 	}
+}
+
+func TestSameSessionMultipleCursor(t *testing.T) {
+	client, err := mongo.Connect()
+	require.NoError(t, err)
+
+	defer client.Disconnect(context.Background())
+
+	sess, err := client.StartSession()
+	require.NoError(t, err)
+
+	coll := client.Database("testdb").Collection("tstcoll")
+	_ = coll.Drop(context.Background())
+
+	ctx := mongo.NewSessionContext(context.Background(), sess)
+
+	// Seed some data
+	for i := 0; i < 10; i++ {
+		coll.InsertOne(ctx, bson.D{{"status", "active"}})
+		coll.InsertOne(ctx, bson.D{{"status", "inactive"}})
+	}
+
+	cur1, err := coll.Find(ctx, bson.D{{"status", "active"}})
+	require.NoError(t, err)
+
+	cur2, err := coll.Find(ctx, bson.D{{"status", "inactive"}})
+	require.NoError(t, err)
+
+	allActive := []bson.D{}
+	require.NoError(t, cur1.All(ctx, &allActive))
+	assert.Len(t, allActive, 10)
+
+	allInactive := []bson.D{}
+	require.NoError(t, cur2.All(ctx, &allInactive))
+	assert.Len(t, allInactive, 10)
 }
 
 // (InvalidOptions) writeConcern is not allowed within a multi-statement transaction
@@ -133,3 +169,4 @@ func TestInvalidWriteConcernInTransaction(t *testing.T) {
 //
 //	require.NoError(t, err)
 //}
+//
