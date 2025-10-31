@@ -20,7 +20,7 @@ require (
 	gonum.org/v1/gonum v0.15.1
 )
 
-replace go.mongodb.org/mongo-driver/v2 => /Users/preston.vasquez/Developer/mongo-go-driver
+replace go.mongodb.org/mongo-driver/v2 => /Users/prestonvasquez/Developer/mongo-go-driver
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
