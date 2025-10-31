@@ -1,0 +1,10 @@
+        arguments:
+          entities:
+            - client:
+                id: &client client
+                uriOptions:
+                  timeoutMS: 250
+                useMultipleMongoses: false
+                observeEvents:
+                  - commandStartedEvent
+

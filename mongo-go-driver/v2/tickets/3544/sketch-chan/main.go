@@ -27,7 +27,7 @@ func (c *client) appendDriverInfo(info driverInfo) {
 
 func main() {
 	c := &client{
-		currentDriverInfoCh: make(chan driverInfo, 1),
+		currentDriverInfoCh: make(chan driverInfo, 16),
 	}
 
 	t := &topology{
